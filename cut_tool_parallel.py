@@ -751,7 +751,7 @@ def lazy_version(
     cap.release()
     cv2.destroyAllWindows()
 
-def analyze_parallel(process_num, frame_cnt, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
+def analyze_parallel(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_point - 1)
     for i in range(start_point - 1,end_point + 1):
         if i<=end_f:
@@ -796,9 +796,9 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
     # analyze_parallel(2, frame_cnt, start_f, end_f, math.floor(frame_cnt/2) + 1, end_f, cap_2, pc, pause_y_n, vp_y_n)
     
     
-    p1 = threading.Thread(target = analyze_parallel, args = (1, frame_cnt, start_f, end_f, 1, math.floor(frame_cnt/2), cap, pc, pause_y_n, vp_y_n))
+    p1 = threading.Thread(target = analyze_parallel, args = (1, start_f, end_f, 1, math.floor(frame_cnt/2), cap, pc, pause_y_n, vp_y_n))
     p1.start()
-    p2 = threading.Thread(target = analyze_parallel, args = (2, frame_cnt, start_f, end_f, math.floor(frame_cnt/2) + 1, end_f, cap_2, pc, pause_y_n, vp_y_n))
+    p2 = threading.Thread(target = analyze_parallel, args = (2, start_f, end_f, math.floor(frame_cnt/2) + 1, end_f, cap_2, pc, pause_y_n, vp_y_n))
     p2.start()
     p1.join()
     p2.join()
