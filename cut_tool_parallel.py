@@ -754,7 +754,7 @@ def lazy_version(
     cap.release()
     cv2.destroyAllWindows()
 
-def analyze_parallel(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
+def normal_pause_analyze(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_point)
     for i in range(start_point, end_point + 1):
         if i<=end_f:
@@ -790,7 +790,6 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
     pc = PointCoordinates()
     pc.calculate_coordinates(lgt,hgt,top_margin,bottom_margin,left_margin,right_margin);        
 
-    skip=True
     pause_y_n=np.ones(frame_cnt)  #0 means a pause, 1 means not a pause
     vp_y_n=np.ones(frame_cnt)  
     
@@ -812,7 +811,7 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
         
         # 创建线程 
         thread = threading.Thread(
-            target=analyze_parallel,
+            target=normal_pause_analyze,
             args=(t, start_f, end_f, start, end, cap_t, pc, pause_y_n, vp_y_n)
         )
         threads.append(thread) 
@@ -829,6 +828,9 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
     cap = cv2.VideoCapture(video_path)
     
     tc.time_start("生成视频片段")
+    
+    
+    
     index = 0
     vp = get_file_suffix(vp_y_n[0], pause_y_n[0])
     out = cv2.VideoWriter(working_path +"out_"+str(index)+vp+".mp4", fourcc, fps, size)
