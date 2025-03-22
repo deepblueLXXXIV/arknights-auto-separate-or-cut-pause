@@ -18,6 +18,9 @@ path = os.getcwd()
 working_path = path + "\\working_folder_new\\"
 
 #constants
+
+THREAD_NUM = 4  
+
 P_M_Y_CO = 0.074             #(right top) pause middle coefficient
 P_M_X_CO = 0.112
 P_L_X_CO = 0.125
@@ -752,8 +755,8 @@ def lazy_version(
     cv2.destroyAllWindows()
 
 def analyze_parallel(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start_point - 1)
-    for i in range(start_point - 1,end_point + 1):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_point)
+    for i in range(start_point, end_point + 1):
         if i<=end_f:
             ret, frame = cap.read()   
         if i>=start_f and i<=end_point:
@@ -763,7 +766,7 @@ def analyze_parallel(process_num, start_f, end_f, start_point, end_point, cap, p
                 if is_valid_pause(frame,pc.vp_y,pc.vp_x_1,pc.vp_x_2,pc.vp_x_3,pc.vp_x_4,
                         pc.vp_2_y,pc.vp_2_x_1,pc.vp_2_x_2,pc.vp_2_x_3,pc.vp_2_x_4):
                     vp_y_n[i]=0         
-            print_progress(i,start_f,end_f,"进程序号" + str(process_num) + "：开始分析暂停位置","进程序号" + str(process_num) + "：100%")  
+            print_progress(i,start_f,end_f,"线程序号" + str(process_num) + "：开始分析暂停位置","线程序号" + str(process_num) + "：100%")  
         
 def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_margin,start_second,end_second):
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
@@ -775,7 +778,10 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
     lgt=cap.get(cv2.CAP_PROP_FRAME_WIDTH)      
     hgt=cap.get(cv2.CAP_PROP_FRAME_HEIGHT)   
     
-    fps=int(cap.get(cv2.CAP_PROP_FPS))       
+    fps=int(cap.get(cv2.CAP_PROP_FPS))    
+
+    cap.release()
+    
     start_f=start_second*fps #start frame (will keep frames before this)
     end_f=end_second*fps  #end frame   (will keep frames after this)
 
@@ -792,30 +798,30 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
        
     tc.time_start("分析暂停")
     
-    # analyze_parallel(1, frame_cnt, start_f, end_f, 0, math.floor(frame_cnt/2), cap, pc, pause_y_n, vp_y_n)
-    # analyze_parallel(2, frame_cnt, start_f, end_f, math.floor(frame_cnt/2) + 1, end_f, cap_2, pc, pause_y_n, vp_y_n)
+   
+    threads = []
+    frame_per_thread = math.floor(frame_cnt / THREAD_NUM) 
+     
+    for t in range(THREAD_NUM):
+        # 创建独立VideoCapture对象避免资源冲突 
+        cap_t = cv2.VideoCapture(video_path)  
+        
+        # 计算每个线程的帧范围 
+        start = t * frame_per_thread 
+        end = (t+1)*frame_per_thread -1 if t != THREAD_NUM-1 else frame_cnt-1 
+        
+        # 创建线程 
+        thread = threading.Thread(
+            target=analyze_parallel,
+            args=(t, start_f, end_f, start, end, cap_t, pc, pause_y_n, vp_y_n)
+        )
+        threads.append(thread) 
+        thread.start() 
+     
+    # 等待所有线程完成 
+    for t in threads:
+        t.join() 
     
-    
-    p1 = threading.Thread(target = analyze_parallel, args = (1, start_f, end_f, 1, math.floor(frame_cnt/2), cap, pc, pause_y_n, vp_y_n))
-    p1.start()
-    p2 = threading.Thread(target = analyze_parallel, args = (2, start_f, end_f, math.floor(frame_cnt/2) + 1, end_f, cap_2, pc, pause_y_n, vp_y_n))
-    p2.start()
-    p1.join()
-    p2.join()
-    
-    cap.release()
-    cap_2.release()
-    # for i in range(frame_cnt):
-        # if i<=end_f:
-            # ret, frame = cap.read()   
-        # if i>=start_f and i<=end_f:
-            # if is_pause(frame,pc.p_m_y,pc.p_m_x,pc.p_l_y,pc.p_l_x,
-                    # pc.m_p_m_y_2,pc.m_p_m_x_2,pc.m_p_l_y,pc.m_p_l_x,pc.m_p_m_y,pc.m_p_m_x,pc.m_p_r_y,pc.m_p_r_x):
-                # pause_y_n[i]=0
-                # if is_valid_pause(frame,pc.vp_y,pc.vp_x_1,pc.vp_x_2,pc.vp_x_3,pc.vp_x_4,
-                        # pc.vp_2_y,pc.vp_2_x_1,pc.vp_2_x_2,pc.vp_2_x_3,pc.vp_2_x_4):
-                    # vp_y_n[i]=0         
-            # print_progress(i,start_f,end_f,"开始分析暂停位置","100%")  
     vp_y_n = expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
         
     tc.time_end()
