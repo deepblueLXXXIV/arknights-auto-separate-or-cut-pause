@@ -575,7 +575,7 @@ def print_progress(i, start, end, start_message, end_message):
     elif i == end:
         print(end_message)
     elif (i - start) % ((end - start) / SHOW_PROGRESS_SEG) < 1 and i > start and i < end:
-        print(str(int((i - start) / ((end - start) / SHOW_PROGRESS_SEG) * 10 / SHOW_PROGRESS_SEG)) + "0%")
+        print( f"{(i - start) / (end - start):.0%}")
 
 def get_file_suffix(vp_value, pause_value):
     if vp_value == 0:
@@ -763,6 +763,27 @@ def lazy_version(
         
     cap.release()
 
+def get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n):
+    bounds = [0]
+    seg_cnts = [0]
+    seg_cnt = 0
+    check = False
+    for i in range(frame_cnt):
+        if len(bounds) == THREAD_NUM:
+            break
+        if pause_y_n[i]==pause_y_n[i-1] and i >= frame_per_thread * len(bounds):
+            check = True
+        elif check and pause_y_n[i]!=pause_y_n[i-1]:
+            bounds += [i]
+            check = False
+            if seg_cnt == seg_cnts[-1]:
+                seg_cnt += 1
+            seg_cnts += [seg_cnt]
+        if pause_y_n[i]!=pause_y_n[i-1]:
+            seg_cnt += 1
+    return bounds, seg_cnts
+
+
 def normal_pause_analyze(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_point)
     for i in range(start_point, end_point + 1):
@@ -822,25 +843,36 @@ def normal_audio_generate(process_num, start_index, start, end, sound, pause_y_n
     out_a.export(working_path +"out_" + str(index) + vp + ".mp3")
     #print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
 
-def get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n):
-    bounds = [0]
-    seg_cnts = [0]
-    seg_cnt = 0
-    check = False
-    for i in range(frame_cnt):
-        if len(bounds) == THREAD_NUM:
-            break
-        if pause_y_n[i]==pause_y_n[i-1] and i >= frame_per_thread * len(bounds):
-            check = True
-        elif check and pause_y_n[i]!=pause_y_n[i-1]:
-            bounds += [i]
-            check = False
-            if seg_cnt == seg_cnts[-1]:
-                seg_cnt += 1
-            seg_cnts += [seg_cnt]
-        if pause_y_n[i]!=pause_y_n[i-1]:
-            seg_cnt += 1
-    return bounds, seg_cnts
+def normal_combine(process_num, prefix, start, end, has_sound, mode):
+    for i in range(start, end):
+        j = prefix + i
+        if has_sound:
+            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+".mp4"+" -i "+working_path+"out_"+str(i)+".mp3"+" -c:v copy -c:a aac "+working_path+str(j)+".mp4",shell = True)
+            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"有效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"有效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"有效暂停.mp4",shell = True)
+            if(mode=="正常模式（保留无效暂停视频）"):
+                subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"无效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"无效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"无效暂停.mp4",shell = True)
+            else:    
+                try:
+                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp3",working_path+str(j)+"无效暂停.mp3")
+                except:
+                    dummy=0      
+            print_progress(i,start,end - 1,"线程序号" + str(process_num) + "：开始合并音频视频片段", "线程序号" + str(process_num) + ":100%")
+            i=i+1
+        else:
+            try:
+                os.rename(working_path+"out_"+str(i)+".mp4",working_path+str(j)+".mp4")
+            except:
+                dummy=0
+            try:
+                os.rename(working_path+"out_"+str(i)+"有效暂停.mp4",working_path+str(j)+"有效暂停.mp4")
+            except:
+                dummy=0   
+            if(mode=="正常模式（保留无效暂停视频）"):
+                try:
+                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp4",working_path+str(j)+"无效暂停.mp4")
+                except:
+                    dummy=0                
+            print_progress(i,start,end - 1,"线程序号" + str(process_num) + "：视频未检测出音频，仅重命名", "线程序号" + str(process_num) + ":100%")
 
             
 def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_margin,start_second,end_second):
@@ -928,9 +960,7 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
         
         threads = []
      
-        for t in range(THREAD_NUM):
-            sound_t = AudioSegment.from_file(video_path, format=os.path.splitext(video_path)[-1].split(".")[1])    
-            
+        for t in range(THREAD_NUM):          
             start = bounds[t]
             end = bounds[t+1] if t != THREAD_NUM-1 else frame_cnt
             start_index = seg_cnts[t]          
@@ -938,7 +968,7 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
             
             thread = threading.Thread( 
                 target=normal_audio_generate, 
-                args=(t, start_index, start, end, sound_t, pause_y_n, vp_y_n, fps) 
+                args=(t, start_index, start, end, sound, pause_y_n, vp_y_n, fps) 
             ) 
             threads.append(thread) 
             thread.start() 
@@ -957,38 +987,28 @@ def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_ma
         
     tc.time_start("合并视频音频")
     
-    for i in range(count + 1):
-        j=pow(10,len(str(count)))+i
-        if has_sound:
-            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+".mp4"+" -i "+working_path+"out_"+str(i)+".mp3"+" -c:v copy -c:a aac "+working_path+str(j)+".mp4",shell = True)
-            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"有效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"有效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"有效暂停.mp4",shell = True)
-            if(mode=="正常模式（保留无效暂停视频）"):
-                subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"无效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"无效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"无效暂停.mp4",shell = True)
-            else:    
-                try:
-                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp3",working_path+str(j)+"无效暂停.mp3")
-                except:
-                    dummy=0                
-            
-            print_progress(i,0,count,"开始合并音频视频片段","100%，正在清理片段请稍后")
-            i=i+1
-        else:
-            try:
-                os.rename(working_path+"out_"+str(i)+".mp4",working_path+str(j)+".mp4")
-            except:
-                dummy=0
-            try:
-                os.rename(working_path+"out_"+str(i)+"有效暂停.mp4",working_path+str(j)+"有效暂停.mp4")
-            except:
-                dummy=0   
-            if(mode=="正常模式（保留无效暂停视频）"):
-                try:
-                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp4",working_path+str(j)+"无效暂停.mp4")
-                except:
-                    dummy=0    
-            print_progress(i,0,count,"视频未检测出音频，仅重命名","100%，重命名完成")          
+    threads = []
+    file_per_thread = math.floor(count / THREAD_NUM) 
+     
+    for t in range(THREAD_NUM):
+        
+        start = t * file_per_thread 
+        end = (t+1)*file_per_thread if t != THREAD_NUM-1 else count
+        prefix = pow(10,len(str(count)))
+        
+        thread = threading.Thread(
+            target=normal_combine,
+            args=(t, prefix, start, end, has_sound, mode)
+        )
+        
+        threads.append(thread) 
+        thread.start() 
+     
+    for t in threads:
+        t.join()  
     
     tc.time_end()
+    
     tc.time_start("清理片段")
     
     if has_sound:       
