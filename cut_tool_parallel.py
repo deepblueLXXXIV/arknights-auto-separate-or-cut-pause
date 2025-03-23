@@ -453,105 +453,79 @@ class PointCoordinates:
 
         # print(p_m_y, p_m_x, m_p_m_y_2, m_p_m_x_2, m_p_l_y, m_p_l_x, acc_l_y, acc_l_x, acc_r_y, acc_r_x)
 
-def is_pause(
-    frame,
-    p_m_y,
-    p_m_x,
-    p_l_y,
-    p_l_x,
-    m_p_m_y_2,
-    m_p_m_x_2,
-    m_p_l_y,
-    m_p_l_x,
-    m_p_m_y,
-    m_p_m_x,
-    m_p_r_y,
-    m_p_r_x
-):
+def is_pause(frame, pc):
     if abs(
-            float(sum(frame[p_l_y, p_l_x]) / len(frame[p_l_y, p_l_x]))
-            - float(sum(frame[p_m_y, p_m_x]) / len(frame[p_m_y, p_m_x]))
+            float(sum(frame[pc.p_l_y, pc.p_l_x]) / len(frame[pc.p_l_y, pc.p_l_x]))
+            - float(sum(frame[pc.p_m_y, pc.p_m_x]) / len(frame[pc.p_m_y, pc.p_m_x]))
             ) < P_DIFF_TH:
         return True
     if (
-        all(frame[m_p_l_y, m_p_l_x] > WHITE_10)
-        and all(frame[m_p_m_y, m_p_m_x] > WHITE_10)
-        and all(frame[m_p_r_y, m_p_r_x] > WHITE_10)
+        all(frame[pc.m_p_l_y, pc.m_p_l_x] > WHITE_10)
+        and all(frame[pc.m_p_m_y, pc.m_p_m_x] > WHITE_10)
+        and all(frame[pc.m_p_r_y, pc.m_p_r_x] > WHITE_10)
     ):  # check if the three points in middle PAUSE word are all white
         return True
     if (
-        all(frame[m_p_m_y, m_p_m_x] > GRAY)
-        and all(abs(frame[m_p_m_y, m_p_m_x] - frame[m_p_l_y, m_p_l_x]) < M_P_DIFF_TH)
-        and all(abs(frame[m_p_m_y, m_p_m_x] - frame[m_p_r_y, m_p_r_x]) < M_P_DIFF_TH)
-        and all(abs(frame[m_p_l_y, m_p_l_x] - frame[m_p_r_y, m_p_r_x]) < M_P_DIFF_TH)
-        and all(frame[m_p_m_y_2, m_p_m_x_2] < GRAY)
+        all(frame[pc.m_p_m_y, pc.m_p_m_x] > GRAY)
+        and all(abs(frame[pc.m_p_m_y, pc.m_p_m_x] - frame[pc.m_p_l_y, pc.m_p_l_x]) < M_P_DIFF_TH)
+        and all(abs(frame[pc.m_p_m_y, pc.m_p_m_x] - frame[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH)
+        and all(abs(frame[pc.m_p_l_y, pc.m_p_l_x] - frame[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH)
+        and all(frame[pc.m_p_m_y_2, pc.m_p_m_x_2] < GRAY)
     ):
         return True
     return False
 
 
-def is_acceleration(frame, acc_l_y, acc_l_x, acc_r_y, acc_r_x):
-    if all(frame[acc_r_y, acc_r_x] > WHITE_9) and any(
-        frame[acc_l_y, acc_l_x] < WHITE_9
+def is_acceleration(frame, pc):
+    if all(frame[pc.acc_r_y, pc.acc_r_x] > WHITE_9) and any(
+        frame[pc.acc_l_y, pc.acc_l_x] < WHITE_9
     ):
         return False
     return True
 
 
-def is_valid_pause(
-    frame,
-    vp_y,
-    vp_x_1,
-    vp_x_2,
-    vp_x_3,
-    vp_x_4,
-    vp_2_y,
-    vp_2_x_1,
-    vp_2_x_2,
-    vp_2_x_3,
-    vp_2_x_4
-):
-    if all(frame[vp_y - 5, vp_x_1] < BLACK_9):
+def is_valid_pause(frame, pc):
+    if all(frame[pc.vp_y - 5, pc.vp_x_1] < BLACK_9):
         if (
-            all(GRAY_LOWER <= frame[vp_y, vp_x_1])
-            and all(frame[vp_y, vp_x_1] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y, vp_x_2])
-            and all(frame[vp_y, vp_x_2] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y, vp_x_3])
-            and all(all(frame[vp_y, vp_x_3]) <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y, vp_x_4])
-            and all(frame[vp_y, vp_x_4] <= GRAY_UPPER)
+            all(GRAY_LOWER <= frame[pc.vp_y, pc.vp_x_1])
+            and all(frame[pc.vp_y, pc.vp_x_1] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y, pc.vp_x_2])
+            and all(frame[pc.vp_y, pc.vp_x_2] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y, pc.vp_x_3])
+            and all(all(frame[pc.vp_y, pc.vp_x_3]) <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y, pc.vp_x_4])
+            and all(frame[pc.vp_y, pc.vp_x_4] <= GRAY_UPPER)
         ):
             return True
         if (
-            all(GRAY_LOWER <= frame[vp_y - 1, vp_x_1])
-            and all(frame[vp_y - 1, vp_x_1] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y - 1, vp_x_2])
-            and all(frame[vp_y - 1, vp_x_2] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y - 1, vp_x_3])
-            and all(all(frame[vp_y - 1, vp_x_3]) <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y - 1, vp_x_4])
-            and all(frame[vp_y - 1, vp_x_4] <= GRAY_UPPER)
+            all(GRAY_LOWER <= frame[pc.vp_y - 1, pc.vp_x_1])
+            and all(frame[pc.vp_y - 1, pc.vp_x_1] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y - 1, pc.vp_x_2])
+            and all(frame[pc.vp_y - 1, pc.vp_x_2] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y - 1, pc.vp_x_3])
+            and all(all(frame[pc.vp_y - 1, pc.vp_x_3]) <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y - 1, pc.vp_x_4])
+            and all(frame[pc.vp_y - 1, pc.vp_x_4] <= GRAY_UPPER)
         ):
             return True
         if (
-            all(GRAY_LOWER <= frame[vp_y + 1, vp_x_1])
-            and all(frame[vp_y + 1, vp_x_1] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y + 1, vp_x_2])
-            and all(frame[vp_y + 1, vp_x_2] <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y + 1, vp_x_3])
-            and all(all(frame[vp_y + 1, vp_x_3]) <= GRAY_UPPER)
-            and all(GRAY_LOWER <= frame[vp_y + 1, vp_x_4])
-            and all(frame[vp_y + 1, vp_x_4] <= GRAY_UPPER)
+            all(GRAY_LOWER <= frame[pc.vp_y + 1, pc.vp_x_1])
+            and all(frame[pc.vp_y + 1, pc.vp_x_1] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y + 1, pc.vp_x_2])
+            and all(frame[pc.vp_y + 1, pc.vp_x_2] <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y + 1, pc.vp_x_3])
+            and all(all(frame[pc.vp_y + 1, pc.vp_x_3]) <= GRAY_UPPER)
+            and all(GRAY_LOWER <= frame[pc.vp_y + 1, pc.vp_x_4])
+            and all(frame[pc.vp_y + 1, pc.vp_x_4] <= GRAY_UPPER)
         ):
             return True
-    if all(frame[vp_2_y, vp_2_x_1] > WHITE_10):
+    if all(frame[pc.vp_2_y, pc.vp_2_x_1] > WHITE_10):
         return True
-    if all(frame[vp_2_y, vp_2_x_2] > WHITE_10):
+    if all(frame[pc.vp_2_y, pc.vp_2_x_2] > WHITE_10):
         return True
-    if all(frame[vp_2_y, vp_2_x_3] > WHITE_10):
+    if all(frame[pc.vp_2_y, pc.vp_2_x_3] > WHITE_10):
         return True
-    if all(frame[vp_2_y, vp_2_x_4] > WHITE_10):
+    if all(frame[pc.vp_2_y, pc.vp_2_x_4] > WHITE_10):
         return True
     return False
 
@@ -621,28 +595,8 @@ def lazy_pause_analyze(
         if i < start_f or i > end_f:
             keep_frame_y_n[i] = True
         else:
-            if not (
-                is_pause(
-                    frame,
-                    pc.p_m_y,
-                    pc.p_m_x,
-                    pc.p_l_y,
-                    pc.p_l_x,
-                    pc.m_p_m_y_2,
-                    pc.m_p_m_x_2,
-                    pc.m_p_l_y,
-                    pc.m_p_l_x,
-                    pc.m_p_m_y,
-                    pc.m_p_m_x,
-                    pc.m_p_r_y,
-                    pc.m_p_r_x
-                )
-            ):
-                if not (
-                    is_acceleration(
-                        frame, pc.acc_l_y, pc.acc_l_x, pc.acc_r_y, pc.acc_r_x
-                    )
-                ):
+            if not is_pause(frame, pc):
+                if is_acceleration(frame, pc):
                     if skip:
                         skip = False
                     else:
@@ -652,19 +606,7 @@ def lazy_pause_analyze(
                     keep_frame_y_n[i] = True
             else:
                 pause_y_n[i] = True
-                if is_valid_pause(
-                    frame,
-                    pc.vp_y,
-                    pc.vp_x_1,
-                    pc.vp_x_2,
-                    pc.vp_x_3,
-                    pc.vp_x_4,
-                    pc.vp_2_y,
-                    pc.vp_2_x_1,
-                    pc.vp_2_x_2,
-                    pc.vp_2_x_3,
-                    pc.vp_2_x_4
-                ):
+                if is_valid_pause(frame, pc):
                     vp_y_n[i] = True
             print_progress(i, start_point, end_point, "线程序号" + str(process_num) + ":开始分析暂停位置", "线程序号" + str(process_num) + "：100%")
                             
@@ -768,8 +710,9 @@ def lazy_version(
             thread.start()
             
             f = open(working_path + TEMP_FILENAME, "a")
-            f.write("file " + TEMP_PREFIX + str(t) + ".mp4" + "\n")
-
+            f.write("file " + TEMP_PREFIX + str(t) + ".mp4" + "\n")        
+        
+        f.close()
             
         for t in threads:
             t.join()
@@ -798,28 +741,8 @@ def lazy_version(
             if i < start_f or i > end_f:
                 out.write(frame)
             else:
-                if not (
-                    is_pause(
-                        frame,
-                        pc.p_m_y,
-                        pc.p_m_x,
-                        pc.p_l_y,
-                        pc.p_l_x,
-                        pc.m_p_m_y_2,
-                        pc.m_p_m_x_2,
-                        pc.m_p_l_y,
-                        pc.m_p_l_x,
-                        pc.m_p_m_y,
-                        pc.m_p_m_x,
-                        pc.m_p_r_y,
-                        pc.m_p_r_x
-                    )
-                ):
-                    if not (
-                        is_acceleration(
-                            frame, pc.acc_l_y, pc.acc_l_x, pc.acc_r_y, pc.acc_r_x
-                        )
-                    ):
+                if not is_pause(frame, pc):
+                    if not is_acceleration(frame, pc):
                         if skip:
                             skip = False
                         else:
@@ -864,35 +787,9 @@ def normal_pause_analyze(
         if i <= end_f:
             ret, frame = cap.read()
         if i >= start_f and i <= end_point:
-            if is_pause(
-                frame,
-                pc.p_m_y,
-                pc.p_m_x,
-                pc.p_l_y,
-                pc.p_l_x,
-                pc.m_p_m_y_2,
-                pc.m_p_m_x_2,
-                pc.m_p_l_y,
-                pc.m_p_l_x,
-                pc.m_p_m_y,
-                pc.m_p_m_x,
-                pc.m_p_r_y,
-                pc.m_p_r_x,
-            ):
+            if is_pause(frame, pc):
                 pause_y_n[i] = True
-                if is_valid_pause(
-                    frame,
-                    pc.vp_y,
-                    pc.vp_x_1,
-                    pc.vp_x_2,
-                    pc.vp_x_3,
-                    pc.vp_x_4,
-                    pc.vp_2_y,
-                    pc.vp_2_x_1,
-                    pc.vp_2_x_2,
-                    pc.vp_2_x_3,
-                    pc.vp_2_x_4,
-                ):
+                if is_valid_pause(frame, pc):
                     vp_y_n[i] = True
             print_progress(
                 i,
