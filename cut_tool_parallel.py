@@ -335,6 +335,7 @@ def cut_without_crop(
                             title="注意",
                             message="视频帧数为非整数，可能会有剪辑问题，推荐使用其他软件重新导出为整数帧文件，点击确定或关闭窗口以继续",
                         )
+                    print(mode + "开始")
                     if mode == "懒人模式（保留有效暂停）" or mode == "懒人模式（暂停全剪）":
                         lazy_version(
                             video_path,
@@ -347,7 +348,6 @@ def cut_without_crop(
                             int(end_second)
                         )
                         # already know these variables are int, thus cast here instead of inside
-                        print("已完成，请在working_folder下查看output.mp4文件")
                     else:  # normal mode otherwise
                         normal_version(
                             video_path,
@@ -359,7 +359,7 @@ def cut_without_crop(
                             int(start_second),
                             int(end_second)
                         )
-                        print("已完成，请在working_folder下查看分离的mp4文件")
+                    print("已完成，请在working_folder下查看分离的mp4文件")
 
 def jump_to_tutorial(event):
     webbrowser.open("https://www.bilibili.com/video/BV1qg411r7dV", new=0)
@@ -637,7 +637,7 @@ def lazy_version(
     left_margin,
     right_margin,
     start_second,
-    end_second,
+    end_second
 ):
     fps, lgt, hgt, frame_cnt = get_video_info(video_path)
 
@@ -662,14 +662,11 @@ def lazy_version(
         threads = []
 
         for t in range(THREAD_NUM):
-            # 创建独立VideoCapture对象避免资源冲突
             cap_t = cv2.VideoCapture(video_path)
 
-            # 计算每个线程的帧范围
             start = t * frame_per_thread if t != 0 else start_f
             end = (t + 1) * frame_per_thread - 1 if t != THREAD_NUM - 1 else end_f
 
-            # 创建线程
             thread = threading.Thread(
                 target=lazy_pause_analyze,
                 args=(
@@ -689,7 +686,6 @@ def lazy_version(
             threads.append(thread)
             thread.start()
 
-        # 等待所有线程完成
         for t in threads:
             t.join()
 
