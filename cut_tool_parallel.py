@@ -15,7 +15,7 @@ import threading
 
 #global variable
 path = os.getcwd()
-working_path = path + "\\working_folder_new\\"
+working_path = path + "\\working_folder\\"
 
 #constants
 
