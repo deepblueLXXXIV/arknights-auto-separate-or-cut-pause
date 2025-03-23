@@ -758,7 +758,7 @@ def lazy_version(
         tc.time_end()
         
 
-def get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n):
+def normal_get_video_audio_bounds(frame_cnt, frame_per_thread, pause_y_n):
     bounds = [0]
     seg_cnts = [0]
     seg_cnt = 0
@@ -1011,7 +1011,7 @@ def normal_version(
 
     tc.time_start("生成视频片段")
 
-    bounds, seg_cnts = get_video_audio_generate_bounds(
+    bounds, seg_cnts = normal_get_video_audio_bounds(
         frame_cnt, frame_per_thread, pause_y_n
     )
 
