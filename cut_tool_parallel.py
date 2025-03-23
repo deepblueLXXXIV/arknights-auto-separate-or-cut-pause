@@ -18,7 +18,9 @@ path = os.getcwd()
 working_path = path + "\\working_folder\\"
 
 #constants
-
+TEMP_FILENAME = "temp_list.txt"
+TEMP_PREFIX = "out_"
+FOURCC = cv2.VideoWriter_fourcc("m", "p", "4", "v")
 THREAD_NUM = 4
 SHOW_PROGRESS_SEG = 5
 
@@ -355,7 +357,7 @@ def cut_without_crop(
                             int(end_second)
                         )
                         # already know these variables are int, thus cast here instead of inside
-                        print("已完成，请在working_folder下查看out.mp4文件")
+                        print("已完成，请在working_folder下查看output.mp4文件")
                     else:  # normal mode otherwise
                         normal_version(
                             video_path,
@@ -555,15 +557,15 @@ def is_valid_pause(
 
 def expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n):
     for i in range(1, frame_cnt - 1):
-        if vp_y_n[i] == 0 and vp_y_n[i - 1] == 1 and pause_y_n[i - 1] == 0:
+        if vp_y_n[i] == True and vp_y_n[i - 1] == False and pause_y_n[i - 1] == True:
             a = i - 1
-            while pause_y_n[a] == 0 and a >= 0:
-                vp_y_n[a] = 0
+            while pause_y_n[a] == True and a >= 0:
+                vp_y_n[a] = True
                 a -= 1
-        elif vp_y_n[i] == 0 and vp_y_n[i + 1] == 1 and pause_y_n[i + 1] == 0:
+        elif vp_y_n[i] == True and vp_y_n[i + 1] == False and pause_y_n[i + 1] == True:
             a = i + 1
-            while pause_y_n[a] == 0 and a < frame_cnt:
-                vp_y_n[a] = 0
+            while pause_y_n[a] == True and a < frame_cnt:
+                vp_y_n[a] = True
                 a += 1
             i = a
     return vp_y_n
@@ -578,9 +580,9 @@ def print_progress(i, start, end, start_message, end_message):
         print( f"{(i - start) / (end - start):.0%}")
 
 def get_file_suffix(vp_value, pause_value):
-    if vp_value == 0:
+    if vp_value == True:
         return '有效暂停'
-    elif pause_value == 0:
+    elif pause_value == True:
         return '无效暂停'
     else:
         return ''
@@ -606,8 +608,89 @@ def get_video_info(video_path):
     hgt = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  
     frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  
     cap.release()  
-    return fps, lgt, hgt, frame_cnt        
+    return fps, lgt, hgt, frame_cnt       
+    
+def lazy_pause_analyze(
+    process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n, keep_frame_y_n
+):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_point)
+    skip = True
+    for i in range(start_point, end_point + 1):
+        if i <= end_f:
+            ret, frame = cap.read()
+        if i < start_f or i > end_f:
+            keep_frame_y_n[i] = True
+        else:
+            if not (
+                is_pause(
+                    frame,
+                    pc.p_m_y,
+                    pc.p_m_x,
+                    pc.p_l_y,
+                    pc.p_l_x,
+                    pc.m_p_m_y_2,
+                    pc.m_p_m_x_2,
+                    pc.m_p_l_y,
+                    pc.m_p_l_x,
+                    pc.m_p_m_y,
+                    pc.m_p_m_x,
+                    pc.m_p_r_y,
+                    pc.m_p_r_x
+                )
+            ):
+                if not (
+                    is_acceleration(
+                        frame, pc.acc_l_y, pc.acc_l_x, pc.acc_r_y, pc.acc_r_x
+                    )
+                ):
+                    if skip:
+                        skip = False
+                    else:
+                        skip = True
+                        keep_frame_y_n[i] = True
+                else:
+                    keep_frame_y_n[i] = True
+            else:
+                pause_y_n[i] = True
+                if is_valid_pause(
+                    frame,
+                    pc.vp_y,
+                    pc.vp_x_1,
+                    pc.vp_x_2,
+                    pc.vp_x_3,
+                    pc.vp_x_4,
+                    pc.vp_2_y,
+                    pc.vp_2_x_1,
+                    pc.vp_2_x_2,
+                    pc.vp_2_x_3,
+                    pc.vp_2_x_4
+                ):
+                    vp_y_n[i] = True
+            print_progress(i, start_point, end_point, "线程序号" + str(process_num) + ":开始分析暂停位置", "线程序号" + str(process_num) + "：100%")
+                            
+    cap.release()
 
+def lazy_video_generate(
+    process_num, start, end, cap, keep_frame_y_n, vp_y_n, fps, lgt, hgt
+):
+    size = (int(lgt), int(hgt))  # requires both int
+    out = cv2.VideoWriter(
+        working_path + TEMP_PREFIX + str(process_num) + ".mp4", FOURCC, fps, size
+    )
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start)    
+    for i in range(start, end):
+        ret, frame = cap.read()            
+        if keep_frame_y_n[i] == True or vp_y_n[i] == True:
+            out.write(frame)
+        print_progress(
+            i, start, end - 1, "线程序号" + str(process_num) + "：开始剪掉暂停及加速", "线程序号" + str(process_num) + "：100%"
+        )
+    
+    out.release()
+    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+    cap.release()
+
+    
 def lazy_version(
     video_path,
     mode,
@@ -618,110 +701,98 @@ def lazy_version(
     start_second,
     end_second
 ):
-    fourcc = cv2.VideoWriter_fourcc("m", "p", "4", "v")
-    cap = cv2.VideoCapture(video_path)
-
-    # settings
-    frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    lgt = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    hgt = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-
-    fps = int(cap.get(cv2.CAP_PROP_FPS))  
+    
+    fps, lgt, hgt, frame_cnt = get_video_info(video_path)
+    
     start_f = start_second * fps  # start frame (will keep frames before this)
     end_f = end_second * fps  # end frame   (will keep frames after this)
 
-    size = (int(lgt), int(hgt))  # requires both int
-    out = cv2.VideoWriter(working_path +"out.mp4", fourcc, fps, size)
     
     pc = PointCoordinates()
     pc.calculate_coordinates(
         lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
     )
 
-    skip = True
-    pause_y_n = np.ones(frame_cnt)  # 0 means a pause, 1 means not a pause
-    vp_y_n = np.ones(frame_cnt)
-    keep_frame_y_n = np.ones(frame_cnt)  # 0 means keep, 1 means no keep
+    pause_y_n = np.full(frame_cnt, False)  # True means a pause, False means not a pause
+    vp_y_n = np.full(frame_cnt, False)
+    keep_frame_y_n = np.full(frame_cnt, False)  # True means keep, False means no keep
     
     tc = TimeCost()
     
     if mode == "懒人模式（保留有效暂停）":        
         tc.time_start("分析暂停")
-        for i in range(frame_cnt):
-            # get a frame
-            if i <= end_f:
-                ret, frame = cap.read()
-            if i < start_f or i > end_f:
-                keep_frame_y_n[i] = 0
-            else:
-                if not (
-                    is_pause(
-                        frame,
-                        pc.p_m_y,
-                        pc.p_m_x,
-                        pc.p_l_y,
-                        pc.p_l_x,
-                        pc.m_p_m_y_2,
-                        pc.m_p_m_x_2,
-                        pc.m_p_l_y,
-                        pc.m_p_l_x,
-                        pc.m_p_m_y,
-                        pc.m_p_m_x,
-                        pc.m_p_r_y,
-                        pc.m_p_r_x
-                    )
-                ):
-                    if not (
-                        is_acceleration(
-                            frame, pc.acc_l_y, pc.acc_l_x, pc.acc_r_y, pc.acc_r_x
-                        )
-                    ):
-                        if skip:
-                            skip = False
-                        else:
-                            skip = True
-                            keep_frame_y_n[i] = 0
-                    else:
-                        keep_frame_y_n[i] = 0
-                else:
-                    pause_y_n[i] = 0
-                    if is_valid_pause(
-                        frame,
-                        pc.vp_y,
-                        pc.vp_x_1,
-                        pc.vp_x_2,
-                        pc.vp_x_3,
-                        pc.vp_x_4,
-                        pc.vp_2_y,
-                        pc.vp_2_x_1,
-                        pc.vp_2_x_2,
-                        pc.vp_2_x_3,
-                        pc.vp_2_x_4
-                    ):
-                        vp_y_n[i] = 0
-                print_progress(i, start_f, end_f, "开始分析暂停位置", "100%")
+        
+        threads = []
+        frame_per_thread = math.floor(frame_cnt / THREAD_NUM)
+
+        for t in range(THREAD_NUM):
+            # 创建独立VideoCapture对象避免资源冲突
+            cap_t = cv2.VideoCapture(video_path)
+
+            # 计算每个线程的帧范围
+            start = t * frame_per_thread if t != 0 else start_f
+            end = (t + 1) * frame_per_thread - 1 if t != THREAD_NUM - 1 else end_f
+
+            # 创建线程
+            thread = threading.Thread(
+                target=lazy_pause_analyze,
+                args=(t, start_f, end_f, start, end, cap_t, pc, pause_y_n, vp_y_n, keep_frame_y_n)
+            )
+
+            threads.append(thread)
+            thread.start()
+
+        # 等待所有线程完成
+        for t in threads:
+            t.join()
+
         vp_y_n = expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
         
         tc.time_end()
         
-        cap.release()
-        cap = cv2.VideoCapture(video_path)
-        
-        
         tc.time_start("生成视频")
-        for i in range(frame_cnt):
-            # get a frame
-            ret, frame = cap.read()            
-            if keep_frame_y_n[i] == 0 or vp_y_n[i] == 0:
-                out.write(frame)
-            print_progress(
-                i, start_f, end_f, "已复制开始秒数之前的片段，开始剪掉暂停及加速", "100%，正在复制结束秒数之后的片段请稍后"
+            
+        threads = []
+
+        for t in range(THREAD_NUM):
+            cap_t = cv2.VideoCapture(video_path)
+
+            start = t * frame_per_thread
+            end = (t + 1) * frame_per_thread  if t != THREAD_NUM - 1 else frame_cnt
+
+            thread = threading.Thread(
+                target=lazy_video_generate,
+                args=(t, start, end, cap_t, keep_frame_y_n, vp_y_n, fps, lgt, hgt)
             )
+            threads.append(thread)
+            thread.start()
+            
+            f = open(working_path + TEMP_FILENAME, "a")
+            f.write("file " + TEMP_PREFIX + str(t) + ".mp4" + "\n")
+
+            
+        for t in threads:
+            t.join()
             
         tc.time_end()
         
+        #cleanup below
+        
+        subprocess.call("ffmpeg -loglevel quiet -f concat -safe 0 -i " 
+            + working_path + TEMP_FILENAME + " -c copy " 
+            + working_path + "output.mp4", shell = True)
+            
+        for root, dirs, files in os.walk(working_path):
+            for name in files:
+                if name.startswith(TEMP_PREFIX):
+                    os.remove(os.path.join(root, name))
+        os.remove(working_path + TEMP_FILENAME)
+        
+        
     elif mode == "懒人模式（暂停全剪）":
         tc.time_start("生成视频")
+        
+        cap = cv2.VideoCapture(video_path) 
         for i in range(frame_cnt):
             ret, frame = cap.read()
             if i < start_f or i > end_f:
@@ -759,9 +830,10 @@ def lazy_version(
                 print_progress(
                     i, start_f, end_f, "已复制开始秒数之前的片段，开始剪掉暂停及加速", "100%，正在复制结束秒数之后的片段请稍后"
                 )
+        
+        cap.release()
         tc.time_end()
         
-    cap.release()
 
 def get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n):
     bounds = [0]
@@ -771,253 +843,376 @@ def get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n):
     for i in range(frame_cnt):
         if len(bounds) == THREAD_NUM:
             break
-        if pause_y_n[i]==pause_y_n[i-1] and i >= frame_per_thread * len(bounds):
+        if pause_y_n[i] == pause_y_n[i - 1] and i >= frame_per_thread * len(bounds):
             check = True
-        elif check and pause_y_n[i]!=pause_y_n[i-1]:
+        elif check and pause_y_n[i] != pause_y_n[i - 1]:
             bounds += [i]
             check = False
             if seg_cnt == seg_cnts[-1]:
                 seg_cnt += 1
             seg_cnts += [seg_cnt]
-        if pause_y_n[i]!=pause_y_n[i-1]:
+        if pause_y_n[i] != pause_y_n[i - 1]:
             seg_cnt += 1
     return bounds, seg_cnts
 
 
-def normal_pause_analyze(process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n):
+def normal_pause_analyze(
+    process_num, start_f, end_f, start_point, end_point, cap, pc, pause_y_n, vp_y_n
+):
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_point)
     for i in range(start_point, end_point + 1):
-        if i<=end_f:
-            ret, frame = cap.read()   
-        if i>=start_f and i<=end_point:
-            if is_pause(frame,pc.p_m_y,pc.p_m_x,pc.p_l_y,pc.p_l_x,
-                    pc.m_p_m_y_2,pc.m_p_m_x_2,pc.m_p_l_y,pc.m_p_l_x,pc.m_p_m_y,pc.m_p_m_x,pc.m_p_r_y,pc.m_p_r_x):
-                pause_y_n[i]=0
-                if is_valid_pause(frame,pc.vp_y,pc.vp_x_1,pc.vp_x_2,pc.vp_x_3,pc.vp_x_4,
-                        pc.vp_2_y,pc.vp_2_x_1,pc.vp_2_x_2,pc.vp_2_x_3,pc.vp_2_x_4):
-                    vp_y_n[i]=0         
-            print_progress(i,start_point,end_point,"线程序号" + str(process_num) + "：开始分析暂停位置","线程序号" + str(process_num) + "：100%")  
+        if i <= end_f:
+            ret, frame = cap.read()
+        if i >= start_f and i <= end_point:
+            if is_pause(
+                frame,
+                pc.p_m_y,
+                pc.p_m_x,
+                pc.p_l_y,
+                pc.p_l_x,
+                pc.m_p_m_y_2,
+                pc.m_p_m_x_2,
+                pc.m_p_l_y,
+                pc.m_p_l_x,
+                pc.m_p_m_y,
+                pc.m_p_m_x,
+                pc.m_p_r_y,
+                pc.m_p_r_x,
+            ):
+                pause_y_n[i] = True
+                if is_valid_pause(
+                    frame,
+                    pc.vp_y,
+                    pc.vp_x_1,
+                    pc.vp_x_2,
+                    pc.vp_x_3,
+                    pc.vp_x_4,
+                    pc.vp_2_y,
+                    pc.vp_2_x_1,
+                    pc.vp_2_x_2,
+                    pc.vp_2_x_3,
+                    pc.vp_2_x_4,
+                ):
+                    vp_y_n[i] = True
+            print_progress(
+                i,
+                start_point,
+                end_point,
+                "线程序号" + str(process_num) + "：开始分析暂停位置",
+                "线程序号" + str(process_num) + "：100%",
+            )
     cap.release()
-    
-def normal_video_generate(process_num, start_index, start, end, cap, pause_y_n, vp_y_n, fps, lgt, hgt): 
-    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v') 
-    size = (int(lgt), int(hgt))  # requires both int 
-    index = start_index 
-    vp = get_file_suffix(vp_y_n[start], pause_y_n[start]) 
-    out = cv2.VideoWriter(working_path + "out_" + str(index) + vp + ".mp4", fourcc, fps, size) 
-    cap.set(cv2.CAP_PROP_POS_FRAMES,  start) 
-    ret, frame = cap.read()  
-    out.write(frame)  
-    for i in range(start + 1, end): 
-        ret, frame = cap.read()  
-        if pause_y_n[i] != pause_y_n[i - 1]:
-            out.release()  
-            #print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
-            index += 1 
-            vp = get_file_suffix(vp_y_n[i], pause_y_n[i]) 
-            out = cv2.VideoWriter(working_path + "out_" + str(index) + vp + ".mp4", fourcc, fps, size) 
-        out.write(frame)
-        print_progress(i, start + 1, end - 1, "线程序号" + str(process_num) + "：开始生成视频片段", "线程序号" + str(process_num) + "：100%") 
 
-    out.release()  
-    #print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
-    cap.release()  
 
-def normal_audio_generate(process_num, start_index, start, end, sound, pause_y_n, vp_y_n, fps):
-    start_seg = start
-    inc=1/fps*1000
+def normal_video_generate(
+    process_num, start_index, start, end, cap, pause_y_n, vp_y_n, fps, lgt, hgt
+):
+    size = (int(lgt), int(hgt))  # requires both int
     index = start_index
     vp = get_file_suffix(vp_y_n[start], pause_y_n[start])
-    
+    out = cv2.VideoWriter(
+        working_path + TEMP_PREFIX + str(index) + vp + ".mp4", FOURCC, fps, size
+    )
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+    ret, frame = cap.read()
+    out.write(frame)
     for i in range(start + 1, end):
-        if pause_y_n[i]!=pause_y_n[i-1]:
+        ret, frame = cap.read()
+        if pause_y_n[i] != pause_y_n[i - 1]:
+            out.release()
+            # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+            index += 1
+            vp = get_file_suffix(vp_y_n[i], pause_y_n[i])
+            out = cv2.VideoWriter(
+                working_path + TEMP_PREFIX + str(index) + vp + ".mp4", FOURCC, fps, size
+            )
+        out.write(frame)
+        print_progress(
+            i,
+            start + 1,
+            end - 1,
+            "线程序号" + str(process_num) + "：开始生成视频片段",
+            "线程序号" + str(process_num) + "：100%",
+        )
+
+    out.release()
+    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+    cap.release()
+
+
+def normal_audio_generate(
+    process_num, start_index, start, end, sound, pause_y_n, vp_y_n, fps
+):
+    start_seg = start
+    inc = 1 / fps * 1000
+    index = start_index
+    vp = get_file_suffix(vp_y_n[start], pause_y_n[start])
+
+    for i in range(start + 1, end):
+        if pause_y_n[i] != pause_y_n[i - 1]:
             out_a = sound[start_seg * inc : i * inc + fps]
-            #print("start is ", start_seg * inc, ", end is ", i * inc + fps)
-            out_a.export(working_path +"out_" + str(index) + vp + ".mp3")
-            #print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
+            # print("start is ", start_seg * inc, ", end is ", i * inc + fps)
+            out_a.export(working_path + TEMP_PREFIX + str(index) + vp + ".mp3")
+            # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
             vp = get_file_suffix(vp_y_n[i], pause_y_n[i])
             index += 1
             start_seg = i
     out_a = sound[start_seg * inc : i * inc + fps]
-    #print("start is ", start_seg * inc, ", end is ", i * inc + fps)
-    out_a.export(working_path +"out_" + str(index) + vp + ".mp3")
-    #print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
+    # print("start is ", start_seg * inc, ", end is ", i * inc + fps)
+    out_a.export(working_path + TEMP_PREFIX + str(index) + vp + ".mp3")
+    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
+
 
 def normal_combine(process_num, prefix, start, end, has_sound, mode):
     for i in range(start, end):
         j = prefix + i
+        old_name = working_path + TEMP_PREFIX + str(i)
+        new_name = working_path + str(j)
         if has_sound:
-            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+".mp4"+" -i "+working_path+"out_"+str(i)+".mp3"+" -c:v copy -c:a aac "+working_path+str(j)+".mp4",shell = True)
-            subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"有效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"有效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"有效暂停.mp4",shell = True)
-            if(mode=="正常模式（保留无效暂停视频）"):
-                subprocess.call("ffmpeg -loglevel quiet -i "+working_path+"out_"+str(i)+"无效暂停.mp4"+" -i "+working_path+"out_"+str(i)+"无效暂停.mp3"+" -c:v copy -c:a aac "+working_path+str(j)+"无效暂停.mp4",shell = True)
-            else:    
+            subprocess.call(
+                "ffmpeg -loglevel quiet -i "
+                + old_name
+                + ".mp4"
+                + " -i "
+                + old_name
+                + ".mp3"
+                + " -c:v copy -c:a aac "
+                + new_name
+                + ".mp4",
+                shell=True,
+            )
+            subprocess.call(
+                "ffmpeg -loglevel quiet -i "
+                + old_name
+                + "有效暂停.mp4"
+                + " -i "
+                + old_name
+                + "有效暂停.mp3"
+                + " -c:v copy -c:a aac "
+                + new_name
+                + "有效暂停.mp4",
+                shell=True,
+            )
+            if mode == "正常模式（保留无效暂停视频）":
+                subprocess.call(
+                    "ffmpeg -loglevel quiet -i "
+                    + old_name
+                    + "无效暂停.mp4"
+                    + " -i "
+                    + old_name
+                    + "无效暂停.mp3"
+                    + " -c:v copy -c:a aac "
+                    + new_name
+                    + "无效暂停.mp4",
+                    shell=True,
+                )
+            else:
                 try:
-                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp3",working_path+str(j)+"无效暂停.mp3")
+                    os.rename(
+                        
+                        old_name + "无效暂停.mp3",
+                        new_name + "无效暂停.mp3",
+                    )
                 except:
-                    dummy=0      
-            print_progress(i,start,end - 1,"线程序号" + str(process_num) + "：开始合并音频视频片段", "线程序号" + str(process_num) + ":100%")
-            i=i+1
+                    dummy = 0
+            print_progress(
+                i,
+                start,
+                end - 1,
+                "线程序号" + str(process_num) + "：开始合并音频视频片段",
+                "线程序号" + str(process_num) + ":100%",
+            )
+            i = i + 1
         else:
             try:
-                os.rename(working_path+"out_"+str(i)+".mp4",working_path+str(j)+".mp4")
+                os.rename(
+                    old_name + ".mp4",
+                    new_name + ".mp4",
+                )
             except:
-                dummy=0
+                dummy = 0
             try:
-                os.rename(working_path+"out_"+str(i)+"有效暂停.mp4",working_path+str(j)+"有效暂停.mp4")
+                os.rename(
+                    old_name + "有效暂停.mp4",
+                    new_name + "有效暂停.mp4",
+                )
             except:
-                dummy=0   
-            if(mode=="正常模式（保留无效暂停视频）"):
+                dummy = 0
+            if mode == "正常模式（保留无效暂停视频）":
                 try:
-                    os.rename(working_path+"out_"+str(i)+"无效暂停.mp4",working_path+str(j)+"无效暂停.mp4")
+                    os.rename(
+                        old_name + "无效暂停.mp4",
+                        new_name + "无效暂停.mp4",
+                    )
                 except:
-                    dummy=0                
-            print_progress(i,start,end - 1,"线程序号" + str(process_num) + "：视频未检测出音频，仅重命名", "线程序号" + str(process_num) + ":100%")
+                    dummy = 0
+            print_progress(
+                i,
+                start,
+                end - 1,
+                "线程序号" + str(process_num) + "：视频未检测出音频，仅重命名",
+                "线程序号" + str(process_num) + ":100%",
+            )
 
-            
-def normal_version(video_path,mode,top_margin,bottom_margin,left_margin,right_margin,start_second,end_second):
-    fps, lgt, hgt, frame_cnt = get_video_info(video_path) 
-    
-    start_f=start_second*fps #start frame (will keep frames before this)
-    end_f=end_second*fps  #end frame   (will keep frames after this)
 
-    
+def normal_version(
+    video_path,
+    mode,
+    top_margin,
+    bottom_margin,
+    left_margin,
+    right_margin,
+    start_second,
+    end_second,
+):
+    fps, lgt, hgt, frame_cnt = get_video_info(video_path)
+
+    start_f = start_second * fps  # start frame (will keep frames before this)
+    end_f = end_second * fps  # end frame   (will keep frames after this)
+
     pc = PointCoordinates()
-    pc.calculate_coordinates(lgt,hgt,top_margin,bottom_margin,left_margin,right_margin);        
+    pc.calculate_coordinates(
+        lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
+    )
 
-    pause_y_n=np.ones(frame_cnt)  #0 means a pause, 1 means not a pause
-    vp_y_n=np.ones(frame_cnt)  
-    
+    pause_y_n = np.full(frame_cnt, False)  # True means a pause, False means not a pause
+    vp_y_n = np.full(frame_cnt, False)
+
     tc = TimeCost()
-       
+
     tc.time_start("分析暂停")
-       
+
     threads = []
-    frame_per_thread = math.floor(frame_cnt / THREAD_NUM) 
-     
+    frame_per_thread = math.floor(frame_cnt / THREAD_NUM)
+
     for t in range(THREAD_NUM):
-        # 创建独立VideoCapture对象避免资源冲突 
-        cap_t = cv2.VideoCapture(video_path)  
-        
-        # 计算每个线程的帧范围 
+        # 创建独立VideoCapture对象避免资源冲突
+        cap_t = cv2.VideoCapture(video_path)
+
+        # 计算每个线程的帧范围
         start = t * frame_per_thread if t != 0 else start_f
-        end = (t+1)*frame_per_thread -1 if t != THREAD_NUM-1 else end_f
-        
-        # 创建线程 
+        end = (t + 1) * frame_per_thread - 1 if t != THREAD_NUM - 1 else end_f
+
+        # 创建线程
         thread = threading.Thread(
             target=normal_pause_analyze,
             args=(t, start_f, end_f, start, end, cap_t, pc, pause_y_n, vp_y_n)
         )
-        
-        threads.append(thread) 
-        thread.start() 
-     
-    # 等待所有线程完成 
+
+        threads.append(thread)
+        thread.start()
+
+    # 等待所有线程完成
     for t in threads:
-        t.join() 
-    
+        t.join()
+
     vp_y_n = expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
-        
+    
+
+    
     tc.time_end()
-    
+
     tc.time_start("生成视频片段")
-    
-    bounds, seg_cnts = get_video_audio_generate_bounds(frame_cnt, frame_per_thread, pause_y_n)
-    
-    #print(bounds)
-    #print(seg_cnts)
-    
+
+    bounds, seg_cnts = get_video_audio_generate_bounds(
+        frame_cnt, frame_per_thread, pause_y_n
+    )
+
+    # print(bounds)
+    # print(seg_cnts)
+
     threads = []
-     
+
     for t in range(THREAD_NUM):
-        cap_t = cv2.VideoCapture(video_path)  
-        
+        cap_t = cv2.VideoCapture(video_path)
+
         start = bounds[t]
-        end = bounds[t+1] if t != THREAD_NUM-1 else frame_cnt
+        end = bounds[t + 1] if t != THREAD_NUM - 1 else frame_cnt
         start_index = seg_cnts[t]
-        
-        thread = threading.Thread( 
-            target=normal_video_generate, 
-            args=(t, start_index, start, end, cap_t, pause_y_n, vp_y_n, fps, lgt, hgt) 
-        ) 
-        #print("args are ", t, start_index, start, end)
-        threads.append(thread) 
-        thread.start() 
-     
+
+        thread = threading.Thread(
+            target=normal_video_generate,
+            args=(t, start_index, start, end, cap_t, pause_y_n, vp_y_n, fps, lgt, hgt)
+        )
+        # print("args are ", t, start_index, start, end)
+        threads.append(thread)
+        thread.start()
+
     for t in threads:
-        t.join() 
-       
-    tc.time_end()    
-    
+        t.join()
+
+    tc.time_end()
+
     has_sound = True
     try:
-        sound = AudioSegment.from_file(video_path, format=os.path.splitext(video_path)[-1].split(".")[1])    
+        sound = AudioSegment.from_file(
+            video_path, format=os.path.splitext(video_path)[-1].split(".")[1]
+        )
     except:
         has_sound = False
-    
+
     if has_sound:
         tc.time_start("生成音频片段")
-        
+
         threads = []
-     
-        for t in range(THREAD_NUM):          
+
+        for t in range(THREAD_NUM):
             start = bounds[t]
-            end = bounds[t+1] if t != THREAD_NUM-1 else frame_cnt
-            start_index = seg_cnts[t]          
-            
-            
-            thread = threading.Thread( 
-                target=normal_audio_generate, 
-                args=(t, start_index, start, end, sound, pause_y_n, vp_y_n, fps) 
-            ) 
-            threads.append(thread) 
-            thread.start() 
-         
+            end = bounds[t + 1] if t != THREAD_NUM - 1 else frame_cnt
+            start_index = seg_cnts[t]
+
+            thread = threading.Thread(
+                target=normal_audio_generate,
+                args=(t, start_index, start, end, sound, pause_y_n, vp_y_n, fps)
+            )
+            threads.append(thread)
+            thread.start()
+
         for t in threads:
-            t.join()         
-        
-        tc.time_end()             
-  
-    working_folder_list=os.listdir(working_path)
-    
+            t.join()
+
+        tc.time_end()
+
+    working_folder_list = os.listdir(working_path)
+
     if has_sound:
         count = int((len(working_folder_list) - 1) / 2)
     else:
         count = len(working_folder_list) - 1
-        
+
     tc.time_start("合并视频音频")
-    
+
     threads = []
-    file_per_thread = math.floor(count / THREAD_NUM) 
-     
+    file_per_thread = math.floor(count / THREAD_NUM)
+
     for t in range(THREAD_NUM):
-        
-        start = t * file_per_thread 
-        end = (t+1)*file_per_thread if t != THREAD_NUM-1 else count
-        prefix = pow(10,len(str(count)))
-        
+
+        start = t * file_per_thread
+        end = (t + 1) * file_per_thread if t != THREAD_NUM - 1 else count
+        prefix = pow(10, len(str(count)))
+
         thread = threading.Thread(
-            target=normal_combine,
-            args=(t, prefix, start, end, has_sound, mode)
+            target=normal_combine, args=(t, prefix, start, end, has_sound, mode)
         )
-        
-        threads.append(thread) 
-        thread.start() 
-     
+
+        threads.append(thread)
+        thread.start()
+
     for t in threads:
-        t.join()  
-    
-    tc.time_end()
-    
-    tc.time_start("清理片段")
-    
-    if has_sound:       
-        for root , dirs, files in os.walk(working_path):
-            for name in files:
-                if name.startswith("out"):
-                    os.remove(os.path.join(root, name))   
+        t.join()
 
     tc.time_end()
+
+    tc.time_start("清理片段")
+
+    if has_sound:
+        for root, dirs, files in os.walk(working_path):
+            for name in files:
+                if name.startswith(TEMP_PREFIX):
+                    os.remove(os.path.join(root, name))
+
+    tc.time_end()
+
     
     
 # main here
