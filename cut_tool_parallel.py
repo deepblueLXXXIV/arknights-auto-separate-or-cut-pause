@@ -69,10 +69,10 @@ DARK_RED_TH = [20, 20, 90] # BGR <= <= >=
 BLUE_TH = [130, 110, 50] # >= >= <=
 BLUE_LOWER_PERC = 0.1
 BLUE_UPPER_PERC = 0.25
-GRAY_LOWER_DIFF = 0.95
-GRAY_UPPER_DIFF = 1.05
-GRAY_LOWER_PERC = 0.23
-GRAY_UPPER_PERC = 0.5
+LIGHT_GRAY_TH = [130, 130, 130]
+LIGHT_GRAY_LOWER_PERC = 0.1
+LIGHT_GRAY_UPPER_PERC = 0.25
+
 
 MARGIN_TH = 500
     
@@ -230,47 +230,17 @@ def measure_margin(measure_margin_second):
                         break
 
                 for x in range(int(lgt / 2)):
-                    y = 0
-                    gray_cnt = 0
-                    for y in range(int(hgt / 2), hgt):
-                        if frame[y, x][GREEN] > 0 and frame[y, x][BLUE] > 0:
-                            if (
-                                GRAY_LOWER_DIFF
-                                < frame[y, x][RED] / frame[y, x][GREEN]
-                                < GRAY_UPPER_DIFF
-                                and GRAY_LOWER_DIFF
-                                < frame[y, x][GREEN] / frame[y, x][BLUE]
-                                < GRAY_UPPER_DIFF
-                                and GRAY_LOWER_DIFF
-                                < frame[y, x][RED] / frame[y, x][BLUE]
-                                < GRAY_UPPER_DIFF
-                            ):
-                                gray_cnt += 1
-                    # print("x is ", x, ", cnts are ", gray_cnt)
-                    if (
-                        GRAY_LOWER_PERC
-                        < gray_cnt / (hgt - top_margin - bottom_margin)
-                        < GRAY_UPPER_PERC
-                    ):
-                        left_margin = x
-                        break            
+                    light_grey_cnt=0
+                    for y in range(hgt):
+                        if(frame[y,x][BLUE]>=LIGHT_GRAY_TH[BLUE] and frame[y,x][GREEN]>=LIGHT_GRAY_TH[GREEN] 
+                                and frame[y,x][RED]>=LIGHT_GRAY_TH[RED]):
+                            light_grey_cnt=light_grey_cnt+1
+                        y=y+1
+                    if LIGHT_GRAY_LOWER_PERC < light_grey_cnt/hgt < LIGHT_GRAY_UPPER_PERC:
+                        left_margin=x
+                        break
+                    x=x+1          
                         
-                # x=0
-                # left_margin = 1000 #default too big num
-                # while x<=lgt-1:
-                    # y=0
-                    # light_grey_cnt=0
-                    # while y<=hgt-1:
-                        # #if x==0:
-                        # #    print('y/frame[y,x] is', y, frame[y,x])
-                        # if(frame[y,x][0]>=130 and frame[y,x][1]>=130 and frame[y,x][2]>=130):
-                            # light_grey_cnt=light_grey_cnt+1
-                        # y=y+1
-                    # if light_grey_cnt/hgt < 0.25 and light_grey_cnt/hgt > 0.1:
-                        # #print('light_grey_cnt/x is ', light_grey_cnt,x)
-                        # left_margin=x
-                        # break
-                    # x=x+1
 
                 if (
                     top_margin >= MARGIN_TH
