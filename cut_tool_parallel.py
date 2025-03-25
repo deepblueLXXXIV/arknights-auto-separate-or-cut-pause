@@ -165,74 +165,112 @@ def get_video_info(video_path):
     cap.release()
     return fps, lgt, hgt, frame_cnt  
     
-def measure_margin(measure_margin_second):  
-    if check_measure_margin_second(measure_margin_second):        
-        video_path=check_file_and_return_path()
-        if video_path:               
-            fps, lgt, hgt, frame_cnt = get_video_info(video_path)            
-            if check_measure_margin_second_2(float(measure_margin_second), fps, frame_cnt):            
+def measure_margin(measure_margin_second):
+    if check_measure_margin_second(measure_margin_second):
+        video_path = check_file_and_return_path()
+        if video_path:
+            fps, lgt, hgt, frame_cnt = get_video_info(video_path)
+            if check_measure_margin_second_2(
+                float(measure_margin_second), fps, frame_cnt
+            ):
                 cap = cv2.VideoCapture(video_path)
                 top_margin = MARGIN_TH
                 bottom_margin = MARGIN_TH
                 left_margin = MARGIN_TH
                 right_margin = MARGIN_TH
-                
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps * float(measure_margin_second)))
-                ret, frame = cap.read()   
+
+                cap.set(
+                    cv2.CAP_PROP_POS_FRAMES, int(fps * float(measure_margin_second))
+                )
+                ret, frame = cap.read()
                 cap.release()
-                
-                flag=False
+
+                flag = False
                 red_cnt = 1
                 for rgt_check in range(1, int(lgt / 2)):
                     for y in range(int(hgt / 2)):
                         x = lgt - rgt_check
-                        if frame[y, x][RED]>=DARK_RED_TH[RED] and frame[y, x][BLUE]<=DARK_RED_TH[BLUE] and frame[y, x][GREEN]<=DARK_RED_TH[GREEN]:
-                            right_margin = rgt_check - 1 
+                        if (
+                            frame[y, x][RED] >= DARK_RED_TH[RED]
+                            and frame[y, x][BLUE] <= DARK_RED_TH[BLUE]
+                            and frame[y, x][GREEN] <= DARK_RED_TH[GREEN]
+                        ):
+                            right_margin = rgt_check - 1
                             first_y = y
                             y += 1
-                            while frame[y, x][RED]>=DARK_RED_TH[RED] and frame[y, x][BLUE]<=DARK_RED_TH[BLUE] and frame[y, x][GREEN]<=DARK_RED_TH[GREEN]:
+                            while (
+                                frame[y, x][RED] >= DARK_RED_TH[RED]
+                                and frame[y, x][BLUE] <= DARK_RED_TH[BLUE]
+                                and frame[y, x][GREEN] <= DARK_RED_TH[GREEN]
+                            ):
                                 y += 1
                                 red_cnt += 1
-                            #print(red_cnt)
-                            top_margin = int(first_y - red_cnt * RED_RATIO_FOR_TOP_MARGIN)
-                            
-                            flag=True
-                            break     
+                            # print(red_cnt)
+                            top_margin = int(
+                                first_y - red_cnt * RED_RATIO_FOR_TOP_MARGIN
+                            )
+
+                            flag = True
+                            break
                     if flag:
                         break
-                
+
                 for bot_check in range(1, int(hgt / 2)):
-                    blue_cnt=0
+                    blue_cnt = 0
                     for x in range(lgt):
                         y = hgt - bot_check
-                        if (frame[y,x][BLUE]>=BLUE_TH[BLUE] and frame[y,x][GREEN]>=BLUE_TH[GREEN] and frame[y,x][RED]<=BLUE_TH[RED]):
-                            blue_cnt += 1 
+                        if (
+                            frame[y, x][BLUE] >= BLUE_TH[BLUE]
+                            and frame[y, x][GREEN] >= BLUE_TH[GREEN]
+                            and frame[y, x][RED] <= BLUE_TH[RED]
+                        ):
+                            blue_cnt += 1
                     if BLUE_LOWER_PERC < blue_cnt / lgt < BLUE_UPPER_PERC:
                         bottom_margin = bot_check - 1
                         break
-                
+
                 for x in range(int(lgt / 2)):
-                    y=0
-                    gray_cnt=0
+                    y = 0
+                    gray_cnt = 0
                     for y in range(int(hgt / 2), hgt):
-                        if frame[y,x][GREEN] > 0 and frame[y,x][BLUE] > 0:
-                            if (GRAY_LOWER_DIFF < frame[y,x][RED] / frame[y,x][GREEN] < GRAY_UPPER_DIFF
-                                    and GRAY_LOWER_DIFF < frame[y,x][GREEN] / frame[y,x][BLUE] < GRAY_UPPER_DIFF
-                                    and GRAY_LOWER_DIFF < frame[y,x][RED] / frame[y,x][BLUE] < GRAY_UPPER_DIFF):
+                        if frame[y, x][GREEN] > 0 and frame[y, x][BLUE] > 0:
+                            if (
+                                GRAY_LOWER_DIFF
+                                < frame[y, x][RED] / frame[y, x][GREEN]
+                                < GRAY_UPPER_DIFF
+                                and GRAY_LOWER_DIFF
+                                < frame[y, x][GREEN] / frame[y, x][BLUE]
+                                < GRAY_UPPER_DIFF
+                                and GRAY_LOWER_DIFF
+                                < frame[y, x][RED] / frame[y, x][BLUE]
+                                < GRAY_UPPER_DIFF
+                            ):
                                 gray_cnt += 1
-                    #print("x is ", x, ", cnts are ", gray_cnt)
-                    if GRAY_LOWER_PERC < gray_cnt / (hgt - top_margin - bottom_margin) < GRAY_UPPER_PERC:
+                    # print("x is ", x, ", cnts are ", gray_cnt)
+                    if (
+                        GRAY_LOWER_PERC
+                        < gray_cnt / (hgt - top_margin - bottom_margin)
+                        < GRAY_UPPER_PERC
+                    ):
                         left_margin = x
                         break
-                    
-                if(top_margin>=MARGIN_TH or bottom_margin>=MARGIN_TH or left_margin>=MARGIN_TH or right_margin>=MARGIN_TH):
-                    messagebox.showerror(title="出错了！", message="计算有误，请重新输入正确的检测边距秒数（显示编队的帧）")
-                    return False                   
-                set_margin(top_margin,bottom_margin,left_margin,right_margin)
+
+                if (
+                    top_margin >= MARGIN_TH
+                    or bottom_margin >= MARGIN_TH
+                    or left_margin >= MARGIN_TH
+                    or right_margin >= MARGIN_TH
+                ):
+                    messagebox.showerror(
+                        title="出错了！", message="计算有误，请重新输入正确的检测边距秒数（显示编队的帧）"
+                    )
+                    return False
+                set_margin(top_margin, bottom_margin, left_margin, right_margin)
                 messagebox.showinfo(title="消息", message="边距已填充")
                 return True
-            else:        
+            else:
                 return False
+
              
 def cut_with_crop(start_second, end_second, measure_margin_second):
     if check_start_end_seconds(start_second, end_second):
