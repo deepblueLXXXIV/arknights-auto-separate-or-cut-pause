@@ -253,7 +253,24 @@ def measure_margin(measure_margin_second):
                         < GRAY_UPPER_PERC
                     ):
                         left_margin = x
-                        break
+                        break            
+                        
+                # x=0
+                # left_margin = 1000 #default too big num
+                # while x<=lgt-1:
+                    # y=0
+                    # light_grey_cnt=0
+                    # while y<=hgt-1:
+                        # #if x==0:
+                        # #    print('y/frame[y,x] is', y, frame[y,x])
+                        # if(frame[y,x][0]>=130 and frame[y,x][1]>=130 and frame[y,x][2]>=130):
+                            # light_grey_cnt=light_grey_cnt+1
+                        # y=y+1
+                    # if light_grey_cnt/hgt < 0.25 and light_grey_cnt/hgt > 0.1:
+                        # #print('light_grey_cnt/x is ', light_grey_cnt,x)
+                        # left_margin=x
+                        # break
+                    # x=x+1
 
                 if (
                     top_margin >= MARGIN_TH
@@ -573,37 +590,34 @@ def lazy_pause_analyze(
         print("开始结束秒数与被分配区间没有交集，线程" + str(process_num) + "未启动" 
             + "\n请尽量只将需要剪辑的部分放入使用")
     else:
-        if start < start_f:
-            start = start_f
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
         skip = True
-        if start < end_f:
-            for i in range(start, end + 1):
-                if i <= end_f:
-                    ret, frame = cap.read()
-                if i < start_f or i > end_f:
-                    keep_frame_y_n[i] = True
-                else:
-                    if not is_pause(frame, pc):
-                        if is_acceleration(frame, pc):
-                            if skip:
-                                skip = False
-                            else:
-                                skip = True
-                                keep_frame_y_n[i] = True
+        for i in range(start, end + 1):
+            if i <= end_f:
+                ret, frame = cap.read()
+            if i < start_f or i > end_f:
+                keep_frame_y_n[i] = True
+            else:
+                if not is_pause(frame, pc):
+                    if not is_acceleration(frame, pc):
+                        if skip:
+                            skip = False
                         else:
+                            skip = True
                             keep_frame_y_n[i] = True
                     else:
-                        pause_y_n[i] = True
-                        if is_valid_pause(frame, pc):
-                            vp_y_n[i] = True
-                    print_progress(
-                        i,
-                        start,
-                        end,
-                        "线程" + str(process_num) + ":开始分析暂停位置",
-                        "线程" + str(process_num) + "：100%",
-                    )
+                        keep_frame_y_n[i] = True
+                else:
+                    pause_y_n[i] = True
+                    if is_valid_pause(frame, pc):
+                        vp_y_n[i] = True
+                print_progress(
+                    i,
+                    start,
+                    end,
+                    "线程" + str(process_num) + ":开始分析暂停位置",
+                    "线程" + str(process_num) + "：100%",
+                )
         cap.release()
 
 def lazy_video_generate(
@@ -698,7 +712,7 @@ def lazy_version(
         for t in range(THREAD_NUM):
             cap_t = cv2.VideoCapture(video_path)
 
-            start = t * frame_per_thread if t != 0 else start_f
+            start = t * frame_per_thread
             end = (t + 1) * frame_per_thread - 1 if t != THREAD_NUM - 1 else end_f
 
             thread = threading.Thread(
@@ -724,7 +738,10 @@ def lazy_version(
             t.join()
 
         expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
-
+        
+        for i in range(len(keep_frame_y_n)):
+            print("i is ", i, ", keep is ", keep_frame_y_n[i])
+        
         tc.time_end()
 
         tc.time_start("生成视频")
@@ -1251,7 +1268,7 @@ b_save_settings = Button(
     font=20
 )
 
-l_measure_margin_second = Label(win, text="检测边距秒数", font=20, height=2)
+l_measure_margin_second = Label(win, text="检测边距秒数（支持小数）", font=20, height=2)
 e_measure_margin_second = Entry(win, bg="white", font=20)
 
 b_measure_margin = Button(
@@ -1277,6 +1294,9 @@ e_start_second = Entry(win, bg="white", font=20)
 
 l_end_second = Label(win, text="结束秒数", font=20, height=2)
 e_end_second = Entry(win, bg="white", font=20)
+
+l_thread_num = Label(win, text="线程数", font=20, height=2)
+e_thread_num = Entry(win, bg="white", font=20)
 
 b_cut_without_crop = Button(
     win,
@@ -1336,10 +1356,13 @@ e_start_second.grid(row=11, column=1)
 l_end_second.grid(row=12)
 e_end_second.grid(row=12, column=1)
 
-b_cut_without_crop.grid(row=13, column=0)
-b_cut_with_crop.grid(row=13, column=1)
-l_tutorial_url.grid(row=14, column=0)
-l_tutorial_url.grid(row=14, column=1)
+l_thread_num.grid(row=13)
+e_thread_num.grid(row=13, column=1)
+
+b_cut_without_crop.grid(row=14, column=0)
+b_cut_with_crop.grid(row=14, column=1)
+l_tutorial_url.grid(row=15, column=0)
+l_tutorial_url.grid(row=15, column=1)
 
 if os.path.exists(path + "/设置.txt"):
     f = open(path + "/设置.txt")
