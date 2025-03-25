@@ -18,6 +18,8 @@ path = os.getcwd()
 working_path = path + "\\working_folder\\"
 
 #constants
+RED_RATIO_FOR_TOP_MARGIN = 0.3913
+
 TEMP_FILENAME = "temp_list.txt"
 TEMP_PREFIX = "out_"
 FOURCC = cv2.VideoWriter_fourcc("m", "p", "4", "v")
@@ -60,7 +62,19 @@ M_P_DIFF_TH = np.array([30, 30, 30]) # threshold
 GRAY_LOWER = np.array([55, 55, 55])
 GRAY_UPPER = np.array([130, 130, 130])
 
-MARGIN_TH = 200
+BLUE = 0
+GREEN = 1
+RED = 2
+DARK_RED_TH = [20, 20, 90] # BGR <= <= >=
+BLUE_TH = [130, 110, 50] # >= >= <=
+BLUE_LOWER_PERC = 0.1
+BLUE_UPPER_PERC = 0.25
+GRAY_LOWER_DIFF = 0.95
+GRAY_UPPER_DIFF = 1.05
+GRAY_LOWER_PERC = 0.23
+GRAY_UPPER_PERC = 0.5
+
+MARGIN_TH = 500
     
 def check_margin(top_margin, bottom_margin, left_margin, right_margin):
     if not (
@@ -124,11 +138,14 @@ def check_measure_margin_second(measure_margin_second):
     if not (measure_margin_second.replace(".", "", 1).isdigit()):
         messagebox.showerror(title="出错了！", message="检测边距秒数有误（需大于0的数字，接受小数）")
         return False
-    if not (float(measure_margin_second) > 0):
-        messagebox.showerror(title="出错了！", message="检测边距秒数必须大于0")
+    return True
+    
+def check_measure_margin_second_2(measure_margin_second, fps, frame_cnt):
+    if measure_margin_second >= frame_cnt / fps:
+        messagebox.showerror(title="出错了！", message="检测边距秒数必须小于视频长度")
         return False
     return True
-
+    
 def set_margin(top_margin, bottom_margin, left_margin, right_margin):
     e_top_margin.delete(0, END)
     e_bottom_margin.delete(0, END)
@@ -138,112 +155,85 @@ def set_margin(top_margin, bottom_margin, left_margin, right_margin):
     e_bottom_margin.insert(0, bottom_margin)
     e_left_margin.insert(0, left_margin)
     e_right_margin.insert(0, right_margin)      
-  
-#TODO: come back later for this logic change then format
+
+def get_video_info(video_path):
+    cap = cv2.VideoCapture(video_path)
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    lgt = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    hgt = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return fps, lgt, hgt, frame_cnt  
+    
 def measure_margin(measure_margin_second):  
     if check_measure_margin_second(measure_margin_second):        
         video_path=check_file_and_return_path()
-        if video_path:   
-            cap = cv2.VideoCapture(video_path)
-            frame_cnt=cap.get(cv2.CAP_PROP_FRAME_COUNT)
-            fps=cap.get(cv2.CAP_PROP_FPS)
-            lgt=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))       #length
-            hgt=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))    #height
-            top_rgt_x=0
-            top_rgt_y=0
-            bot_lft_x=0
-            bot_lft_y=0
-            
-            i = 0
-            while i < int(fps)*float(measure_margin_second):
-                ret, frame = cap.read()   
-                i=i+1
-            x=lgt-1
-            flag=False
-            while x >= 0:
-                y=0
-                while y <=hgt-1:
-                    if(frame[y,x][2]>=90 and frame[y,x][0]<=20 and frame[y,x][1]<=20):
-                        #print('here!')
-                        top_rgt_x=x
-                        top_rgt_y=y
-                        right_margin=lgt-1-x
-                        y=y+1                        
-                        #print('aaa frame[y,x] is ', y, x, frame[y,x])
-                        while(not(frame[y,x][2]>=100 and frame[y,x][0]>= 100 and frame[y,x][1]>= 100)) and y<=hgt-2:
-                            #print('yy frame[y,x] is ', y, x, frame[y,x])
-                            y=y+1
-                        #print('yyfinal frame[y,x] is ', y, x, frame[y,x])
-                        bot_lft_y=y-1
-                        y=top_rgt_y
-                        #print('bot_lft_y is ', bot_lft_y)
-                        #print('bbb frame[y,x] is ', y, x, frame[y,x])
-                        while(not(frame[y,x][2]>=100 and frame[y,x][0]>= 100 and frame[y,x][1]>= 100)) and x>=1:
-                            #print('xx frame[y,x] is ', y, x, frame[y,x])
-                            x=x-1
-                        bot_lft_x=x+1
-                        #print('bot_lft_x is ', bot_lft_x)
-                        #print('top_rgt_x is ', top_rgt_x)
-                        flag=True
-                        break                        
-                    y=y+1
-                if flag:
-                    break
-                x=x-1
-            
-            y=hgt-1
-            bottom_margin = 1000 #default too big num
-            while y >=0:
-                x=0
-                blue_cnt=0
-                while x<=lgt-1:
-                    if(frame[y,x][0]>=90 and frame[y,x][1]>=90 and frame[y,x][2]<=50):
-                        blue_cnt=blue_cnt+1                        
-                    x=x+1
-                if blue_cnt/lgt < 0.25 and blue_cnt/lgt > 0.1:
-                    bottom_margin=hgt-y-1
-                    break
-                y=y-1
-            
-            x=0
-            left_margin = 1000 #default too big num
-            while x<=lgt-1:
-                y=0
-                light_grey_cnt=0
-                while y<=hgt-1:
-                    #if x==0:
-                    #    print('y/frame[y,x] is', y, frame[y,x])
-                    if(frame[y,x][0]>=130 and frame[y,x][1]>=130 and frame[y,x][2]>=130):
-                        light_grey_cnt=light_grey_cnt+1
-                    y=y+1
-                if light_grey_cnt/hgt < 0.25 and light_grey_cnt/hgt > 0.1:
-                    #print('light_grey_cnt/x is ', light_grey_cnt,x)
-                    left_margin=x
-                    break
-                x=x+1
+        if video_path:               
+            fps, lgt, hgt, frame_cnt = get_video_info(video_path)            
+            if check_measure_margin_second_2(float(measure_margin_second), fps, frame_cnt):            
+                cap = cv2.VideoCapture(video_path)
+                top_margin = MARGIN_TH
+                bottom_margin = MARGIN_TH
+                left_margin = MARGIN_TH
+                right_margin = MARGIN_TH
                 
-            #print('top right x,y is ', top_rgt_x+1, top_rgt_y-2)
-            #print('bot left x,y is', bot_lft_x-1, bot_lft_y+1)
-            #print('lgt is, hgt is', lgt, hgt)
-            
-            if(top_rgt_x==bot_lft_x or top_rgt_y==bot_lft_y):
-                messagebox.showerror(title="出错了！", message="计算有误，请重新输入正确的检测边距秒数（显示编队的帧）")
-                return False
-            else:
-                #print('top_rgt_x is ', top_rgt_x)
-                right_margin=lgt-1-top_rgt_x
-                top_margin=math.floor(top_rgt_y-2-1/3*(bot_lft_y+1-top_rgt_y+2)) 
-                #print(top_margin,bottom_margin,left_margin,right_margin)
-                if(top_margin>MARGIN_TH or bottom_margin>MARGIN_TH or left_margin>MARGIN_TH or right_margin>MARGIN_TH):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps * float(measure_margin_second)))
+                ret, frame = cap.read()   
+                cap.release()
+                
+                flag=False
+                red_cnt = 1
+                for rgt_check in range(1, int(lgt / 2)):
+                    for y in range(int(hgt / 2)):
+                        x = lgt - rgt_check
+                        if frame[y, x][RED]>=DARK_RED_TH[RED] and frame[y, x][BLUE]<=DARK_RED_TH[BLUE] and frame[y, x][GREEN]<=DARK_RED_TH[GREEN]:
+                            right_margin = rgt_check - 1 
+                            first_y = y
+                            y += 1
+                            while frame[y, x][RED]>=DARK_RED_TH[RED] and frame[y, x][BLUE]<=DARK_RED_TH[BLUE] and frame[y, x][GREEN]<=DARK_RED_TH[GREEN]:
+                                y += 1
+                                red_cnt += 1
+                            #print(red_cnt)
+                            top_margin = int(first_y - red_cnt * RED_RATIO_FOR_TOP_MARGIN)
+                            
+                            flag=True
+                            break     
+                    if flag:
+                        break
+                
+                for bot_check in range(1, int(hgt / 2)):
+                    blue_cnt=0
+                    for x in range(lgt):
+                        y = hgt - bot_check
+                        if (frame[y,x][BLUE]>=BLUE_TH[BLUE] and frame[y,x][GREEN]>=BLUE_TH[GREEN] and frame[y,x][RED]<=BLUE_TH[RED]):
+                            blue_cnt += 1 
+                    if BLUE_LOWER_PERC < blue_cnt / lgt < BLUE_UPPER_PERC:
+                        bottom_margin = bot_check - 1
+                        break
+                
+                for x in range(int(lgt / 2)):
+                    y=0
+                    gray_cnt=0
+                    for y in range(int(hgt / 2), hgt):
+                        if frame[y,x][GREEN] > 0 and frame[y,x][BLUE] > 0:
+                            if (GRAY_LOWER_DIFF < frame[y,x][RED] / frame[y,x][GREEN] < GRAY_UPPER_DIFF
+                                    and GRAY_LOWER_DIFF < frame[y,x][GREEN] / frame[y,x][BLUE] < GRAY_UPPER_DIFF
+                                    and GRAY_LOWER_DIFF < frame[y,x][RED] / frame[y,x][BLUE] < GRAY_UPPER_DIFF):
+                                gray_cnt += 1
+                    #print("x is ", x, ", cnts are ", gray_cnt)
+                    if GRAY_LOWER_PERC < gray_cnt / (hgt - top_margin - bottom_margin) < GRAY_UPPER_PERC:
+                        left_margin = x
+                        break
+                    
+                if(top_margin>=MARGIN_TH or bottom_margin>=MARGIN_TH or left_margin>=MARGIN_TH or right_margin>=MARGIN_TH):
                     messagebox.showerror(title="出错了！", message="计算有误，请重新输入正确的检测边距秒数（显示编队的帧）")
                     return False                   
                 set_margin(top_margin,bottom_margin,left_margin,right_margin)
                 messagebox.showinfo(title="消息", message="边距已填充")
                 return True
-            cap.release()
-        else:        
-            return False
-         
+            else:        
+                return False
+             
 def cut_with_crop(start_second, end_second, measure_margin_second):
     if check_start_end_seconds(start_second, end_second):
         if measure_margin(measure_margin_second):
@@ -272,14 +262,21 @@ def crop(top_margin, bottom_margin, left_margin, right_margin):
                 top_margin, bottom_margin, left_margin, right_margin, orig_name
             ):
                 cap = cv2.VideoCapture(video_path)
-                lgt = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # length
-                hgt = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # height
+                lgt = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+                hgt = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) 
                 cap.release()
                 out = working_path + "aftercrop.mp4"
-                W = str(lgt - int(left_margin) - int(right_margin))
-                H = str(hgt - int(top_margin) - int(bottom_margin))
+                if (lgt - int(left_margin) - int(right_margin)) % 2 == 1:
+                    W = str(lgt - int(left_margin) - int(right_margin) + 1)
+                else:
+                    W = str(lgt - int(left_margin) - int(right_margin))
+                if (hgt - int(top_margin) - int(bottom_margin)) % 2 == 1:
+                    H = str(hgt - int(top_margin) - int(bottom_margin) + 1)
+                else:                    
+                    H = str(hgt - int(top_margin) - int(bottom_margin))
                 X = left_margin
                 Y = top_margin
+                print(X, Y, W, H)
                 print("开始裁剪")
                 subprocess.call('ffmpeg -loglevel quiet -i "'
                     + video_path + '" -b:v 0 -vf crop=' 
@@ -389,9 +386,9 @@ class PointCoordinates:
     def calculate_coordinates(
         self, lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
     ):
-        act_hgt = int(round(hgt - top_margin - bottom_margin, 0))
-        act_lgt = int(round(lgt - left_margin - right_margin, 0))
-
+        act_hgt = hgt - top_margin - bottom_margin
+        act_lgt = lgt - left_margin - right_margin
+        
         if act_lgt * 1080 < act_hgt * 1920:
             mdf_hgt = int(round(act_lgt / 1920 * 1080, 0))
         else:
@@ -530,52 +527,51 @@ class TimeCost:
         print("    计时结束于 " + str(self.end))
         print("        用时 " + str(self.end - self.start))
 
-def get_video_info(video_path):
-    cap = cv2.VideoCapture(video_path)
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    lgt = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    hgt = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-    return fps, lgt, hgt, frame_cnt
 
 def lazy_pause_analyze(
     process_num, start_f, end_f, start, end, cap, pc, pause_y_n, vp_y_n, keep_frame_y_n
 ):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-    skip = True
-    for i in range(start, end + 1):
-        if i <= end_f:
-            ret, frame = cap.read()
-        if i < start_f or i > end_f:
-            keep_frame_y_n[i] = True
-        else:
-            if not is_pause(frame, pc):
-                if is_acceleration(frame, pc):
-                    if skip:
-                        skip = False
-                    else:
-                        skip = True
-                        keep_frame_y_n[i] = True
-                else:
+    if end_f < start or end < start_f:
+        print("开始结束秒数与被分配区间没有交集，线程" + str(process_num) + "未启动" 
+            + "\n请尽量只将需要剪辑的部分放入使用")
+    else:
+        if start < start_f:
+            start = start_f
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        skip = True
+        if start < end_f:
+            for i in range(start, end + 1):
+                if i <= end_f:
+                    ret, frame = cap.read()
+                if i < start_f or i > end_f:
                     keep_frame_y_n[i] = True
-            else:
-                pause_y_n[i] = True
-                if is_valid_pause(frame, pc):
-                    vp_y_n[i] = True
-            print_progress(
-                i,
-                start,
-                end,
-                "线程序号" + str(process_num) + ":开始分析暂停位置",
-                "线程序号" + str(process_num) + "：100%",
-            )
-    cap.release()
+                else:
+                    if not is_pause(frame, pc):
+                        if is_acceleration(frame, pc):
+                            if skip:
+                                skip = False
+                            else:
+                                skip = True
+                                keep_frame_y_n[i] = True
+                        else:
+                            keep_frame_y_n[i] = True
+                    else:
+                        pause_y_n[i] = True
+                        if is_valid_pause(frame, pc):
+                            vp_y_n[i] = True
+                    print_progress(
+                        i,
+                        start,
+                        end,
+                        "线程" + str(process_num) + ":开始分析暂停位置",
+                        "线程" + str(process_num) + "：100%",
+                    )
+        cap.release()
 
 def lazy_video_generate(
     process_num, start, end, cap, keep_frame_y_n, vp_y_n, fps, lgt, hgt
 ):
-    size = (int(lgt), int(hgt))  # requires both int
+    size = (lgt, hgt)  
     out = cv2.VideoWriter(
         working_path + TEMP_PREFIX + str(process_num) + ".mp4", FOURCC, fps, size
     )
@@ -588,18 +584,18 @@ def lazy_video_generate(
             i,
             start,
             end - 1,
-            "线程序号" + str(process_num) + "：开始剪掉暂停及加速",
-            "线程序号" + str(process_num) + "：100%",
+            "线程" + str(process_num) + "：开始剪掉暂停及加速",
+            "线程" + str(process_num) + "：100%",
         )
 
     out.release()
-    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+    # print("线程" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
     cap.release()
 
 def lazy_video_generate_2(
     process_num, start_f, end_f, start, end, cap, pc, fps, lgt, hgt
 ):
-    size = (int(lgt), int(hgt))  # requires both int
+    size = (lgt, hgt)
     out = cv2.VideoWriter(
         working_path + TEMP_PREFIX + str(process_num) + ".mp4", FOURCC, fps, size
     )
@@ -623,8 +619,8 @@ def lazy_video_generate_2(
                 i,
                 start,
                 end - 1,
-                "线程序号" + str(process_num) + "：开始剪掉暂停及加速",
-                "线程序号" + str(process_num) + "：100%",
+                "线程" + str(process_num) + "：开始剪掉暂停及加速",
+                "线程" + str(process_num) + "：100%",
             )
     out.release()
     cap.release()
@@ -770,46 +766,50 @@ def normal_get_video_audio_bounds(frame_cnt, frame_per_thread, pause_y_n):
     seg_cnts = [0]
     seg_cnt = 0
     check = False
-    for i in range(frame_cnt):
+    for i in range(1, frame_cnt):
         if len(bounds) == THREAD_NUM:
             break
+        if pause_y_n[i] != pause_y_n[i - 1]:
+            seg_cnt += 1
         if pause_y_n[i] == pause_y_n[i - 1] and i >= frame_per_thread * len(bounds):
             check = True
         elif check and pause_y_n[i] != pause_y_n[i - 1]:
             bounds += [i]
             check = False
-            if seg_cnt == seg_cnts[-1]:
-                seg_cnt += 1
             seg_cnts += [seg_cnt]
-        if pause_y_n[i] != pause_y_n[i - 1]:
-            seg_cnt += 1
     return bounds, seg_cnts
 
 def normal_pause_analyze(
     process_num, start_f, end_f, start, end, cap, pc, pause_y_n, vp_y_n
 ):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-    for i in range(start, end + 1):
-        if i <= end_f:
-            ret, frame = cap.read()
-        if i >= start_f and i <= end:
-            if is_pause(frame, pc):
-                pause_y_n[i] = True
-                if is_valid_pause(frame, pc):
-                    vp_y_n[i] = True
-            print_progress(
-                i,
-                start,
-                end,
-                "线程序号" + str(process_num) + "：开始分析暂停位置",
-                "线程序号" + str(process_num) + "：100%",
-            )
-    cap.release()
+    if end_f < start or end < start_f:
+        print("开始结束秒数与被分配区间没有交集，线程" + str(process_num) + "未启动" 
+            + "\n请尽量只将需要剪辑的部分放入使用")
+    else:
+        if start < start_f:
+            start = start_f
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        for i in range(start, end + 1):
+            if i <= end_f:
+                ret, frame = cap.read()
+            if i >= start_f and i <= end:
+                if is_pause(frame, pc):
+                    pause_y_n[i] = True
+                    if is_valid_pause(frame, pc):
+                        vp_y_n[i] = True
+                print_progress(
+                    i,
+                    start,
+                    end,
+                    "线程" + str(process_num) + "：开始分析暂停位置",
+                    "线程" + str(process_num) + "：100%",
+                )
+        cap.release()
 
 def normal_video_generate(
     process_num, start_index, start, end, cap, pause_y_n, vp_y_n, fps, lgt, hgt
 ):
-    size = (int(lgt), int(hgt))  # requires both int
+    size = (lgt, hgt) 
     index = start_index
     vp = get_file_suffix(vp_y_n[start], pause_y_n[start])
     out = cv2.VideoWriter(
@@ -822,7 +822,7 @@ def normal_video_generate(
         ret, frame = cap.read()
         if pause_y_n[i] != pause_y_n[i - 1]:
             out.release()
-            # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+            # print("线程" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
             index += 1
             vp = get_file_suffix(vp_y_n[i], pause_y_n[i])
             out = cv2.VideoWriter(
@@ -833,12 +833,12 @@ def normal_video_generate(
             i,
             start + 1,
             end - 1,
-            "线程序号" + str(process_num) + "：开始生成视频片段",
-            "线程序号" + str(process_num) + "：100%",
+            "线程" + str(process_num) + "：开始生成视频片段",
+            "线程" + str(process_num) + "：100%",
         )
 
     out.release()
-    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
+    # print("线程" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp4")
     cap.release()
 
 def normal_audio_generate(
@@ -854,14 +854,14 @@ def normal_audio_generate(
             out_a = sound[start_seg * inc : i * inc + fps]
             # print("start is ", start_seg * inc, ", end is ", i * inc + fps)
             out_a.export(working_path + TEMP_PREFIX + str(index) + vp + ".mp3")
-            # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
+            # print("线程" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
             vp = get_file_suffix(vp_y_n[i], pause_y_n[i])
             index += 1
             start_seg = i
     out_a = sound[start_seg * inc : i * inc + fps]
     # print("start is ", start_seg * inc, ", end is ", i * inc + fps)
     out_a.export(working_path + TEMP_PREFIX + str(index) + vp + ".mp3")
-    # print("序号" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
+    # print("线程" + str(process_num) + "生成了文件 out_" + str(index) + vp + ".mp3")
 
 def normal_combine(process_num, prefix, start, end, has_sound, mode):
     for i in range(start, end):
@@ -918,8 +918,8 @@ def normal_combine(process_num, prefix, start, end, has_sound, mode):
                 i,
                 start,
                 end - 1,
-                "线程序号" + str(process_num) + "：开始合并音频视频片段",
-                "线程序号" + str(process_num) + ":100%",
+                "线程" + str(process_num) + "：开始合并音频视频片段",
+                "线程" + str(process_num) + ":100%",
             )
             i = i + 1
         else:
@@ -949,11 +949,12 @@ def normal_combine(process_num, prefix, start, end, has_sound, mode):
                 i,
                 start,
                 end - 1,
-                "线程序号" + str(process_num) + "：视频未检测出音频，仅重命名",
-                "线程序号" + str(process_num) + ":100%",
+                "线程" + str(process_num) + "：视频未检测出音频，仅重命名",
+                "线程" + str(process_num) + ":100%",
             )
 
-def normal_version(
+
+def normal_version_modified (
     video_path,
     mode,
     top_margin,
@@ -1013,14 +1014,79 @@ def normal_version(
     bounds, seg_cnts = normal_get_video_audio_bounds(
         frame_cnt, frame_per_thread, pause_y_n
     )
+    print ("bounds are ", bounds)
+    print ("seg_cnts are ", seg_cnts)
+
+def normal_version(
+    video_path,
+    mode,
+    top_margin,
+    bottom_margin,
+    left_margin,
+    right_margin,
+    start_second,
+    end_second,
+):
+    fps, lgt, hgt, frame_cnt = get_video_info(video_path)
+
+    start_f = start_second * fps  # start frame (will keep frames before this)
+    end_f = end_second * fps  # end frame   (will keep frames after this)
+
+    pc = PointCoordinates()
+    pc.calculate_coordinates(
+        lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
+    )
+
+    pause_y_n = np.full(frame_cnt, False)  # True means a pause, False means not a pause
+    vp_y_n = np.full(frame_cnt, False)
+
+    tc = TimeCost()
+
+    tc.time_start("分析暂停")
 
     threads = []
-
+    frame_per_thread = math.floor(frame_cnt / THREAD_NUM)
+    
     for t in range(THREAD_NUM):
+        # 创建独立VideoCapture对象避免资源冲突
+        cap_t = cv2.VideoCapture(video_path)
+
+        # 计算每个线程的帧范围
+        start = t * frame_per_thread if t != 0 else start_f
+        end = (t + 1) * frame_per_thread - 1 if t != THREAD_NUM - 1 else end_f
+
+        # 创建线程
+        thread = threading.Thread(
+            target=normal_pause_analyze,
+            args=(t, start_f, end_f, start, end, cap_t, pc, pause_y_n, vp_y_n)
+        )
+
+        threads.append(thread)
+        thread.start()
+
+    # 等待所有线程完成
+    for t in threads:
+        t.join()
+
+    expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
+    
+    tc.time_end()
+
+    tc.time_start("生成视频片段")
+
+    bounds, seg_cnts = normal_get_video_audio_bounds(
+        frame_cnt, frame_per_thread, pause_y_n
+    )
+    print ("bounds are ", bounds)
+    print ("seg_cnts are ", seg_cnts)
+    
+    threads = []
+
+    for t in range(len(bounds)):
         cap_t = cv2.VideoCapture(video_path)
 
         start = bounds[t]
-        end = bounds[t + 1] if t != THREAD_NUM - 1 else frame_cnt
+        end = bounds[t + 1] if t != len(bounds) - 1 else frame_cnt
         start_index = seg_cnts[t]
 
         thread = threading.Thread(
@@ -1049,9 +1115,9 @@ def normal_version(
 
         threads = []
 
-        for t in range(THREAD_NUM):
+        for t in range(len(bounds)):
             start = bounds[t]
-            end = bounds[t + 1] if t != THREAD_NUM - 1 else frame_cnt
+            end = bounds[t + 1] if t != len(bounds) - 1 else frame_cnt
             start_index = seg_cnts[t]
 
             thread = threading.Thread(
@@ -1113,7 +1179,7 @@ win.title("明日方舟自动分离/剪掉暂停")
 win.geometry(str(1100 + len(path.encode("utf-8")) * 5) + "x850")
 
 l_text_working_path = Label(win, text="当前工作目录", font=20, height=3)
-l_working_path = Label(win, text=working_path, bg="lightgrey", font=20, height=3)
+l_working_path = Label(win, text=working_path, bg="lightgray", font=20, height=3)
 
 l_mode = Label(win, text="选择模式", font=20, height=3)
 e_mode = ttk.Combobox(win, font=20, height=4, width=28)
