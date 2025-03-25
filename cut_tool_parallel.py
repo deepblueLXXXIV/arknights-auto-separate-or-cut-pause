@@ -739,8 +739,8 @@ def lazy_version(
 
         expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n)
         
-        for i in range(len(keep_frame_y_n)):
-            print("i is ", i, ", keep is ", keep_frame_y_n[i])
+        # for i in range(2760, len(keep_frame_y_n)):
+            # print("i is ", i, ", keep is ", keep_frame_y_n[i])
         
         tc.time_end()
 
