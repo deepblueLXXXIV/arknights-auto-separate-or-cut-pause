@@ -18,7 +18,6 @@ path = os.getcwd()
 working_path = path + "\\working_folder\\"
 
 #constants
-RED_RATIO_FOR_TOP_MARGIN = 0.3913
 
 TEMP_FILENAME = "temp_list.txt"
 TEMP_PREFIX = "out_"
@@ -66,6 +65,7 @@ BLUE = 0
 GREEN = 1
 RED = 2
 DARK_RED_TH = [20, 20, 90] # BGR <= <= >=
+RED_RATIO_FOR_TOP_MARGIN = 0.3913
 BLUE_TH = [130, 110, 50] # >= >= <=
 BLUE_LOWER_PERC = 0.1
 BLUE_UPPER_PERC = 0.25
