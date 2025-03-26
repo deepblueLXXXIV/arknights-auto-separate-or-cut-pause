@@ -1300,7 +1300,7 @@ e_thread_num.grid(row=13, column=1)
 
 b_cut_without_crop.grid(row=14, column=0)
 b_cut_with_crop.grid(row=14, column=1)
-l_tutorial_url.grid(row=15, column=0)
+l_tutorial.grid(row=15, column=0)
 l_tutorial_url.grid(row=15, column=1)
 
 if os.path.exists(path + "/设置.txt"):
