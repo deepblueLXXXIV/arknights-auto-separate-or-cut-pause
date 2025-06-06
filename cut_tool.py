@@ -269,26 +269,27 @@ def measure_margin(measure_margin_second):
                 return False
 
              
-def cut_with_crop(mode, top_margin, bottom_margin, left_margin, right_margin, start_second, end_second, thread_num, measure_margin_second):
+def cut_with_crop(mode, start_second, end_second, thread_num, measure_margin_second):
     if check_thread_num(thread_num):
         if check_start_end_seconds(start_second, end_second):
             if measure_margin(measure_margin_second):
-                if crop(
-                    top_margin,
-                    bottom_margin,
-                    left_margin,
-                    right_margin
+                if crop(                    
+                    e_top_margin.get(),
+                    e_bottom_margin.get(),
+                    e_left_margin.get(),
+                    e_right_margin.get(),
                 ):
-                    cut_without_crop(
-                        mode,
-                        top_margin,
-                        bottom_margin,
-                        left_margin,
-                        right_margin,
-                        start_second,
-                        end_second,
-                        thread_num
-                    )
+                    if measure_margin(measure_margin_second):
+                        cut_without_crop(
+                            mode,  
+                            e_top_margin.get(),
+                            e_bottom_margin.get(),
+                            e_left_margin.get(),
+                            e_right_margin.get(),
+                            start_second,
+                            end_second,
+                            thread_num
+                        )
 
 def crop(top_margin, bottom_margin, left_margin, right_margin):
     video_path = check_file_and_return_path()
@@ -313,15 +314,20 @@ def crop(top_margin, bottom_margin, left_margin, right_margin):
                     H = str(hgt - int(top_margin) - int(bottom_margin))
                 X = left_margin
                 Y = top_margin
-                print(X, Y, W, H)
-                print("开始裁剪")
+                #print(X, Y, W, H)              
+                
+                tc = TimeCost()
+                tc.time_start("裁剪")
+
                 subprocess.call('ffmpeg -loglevel quiet -i "'
                     + video_path + '" -b:v 0 -vf crop=' 
                     + W + ':' + H + ':' + X + ':' + Y + ' '+out,shell = True)
                 os.rename(video_path, "./" + orig_name)
                 print("已完成，请在working_folder下查看裁剪后的aftercrop.mp4文件，原文件已移动至上级目录")
-                set_margin(0, 0, 0, 0)
-                print("边距已重置为0")
+                
+                tc.time_end()
+                # set_margin(0, 0, 0, 0)
+                # print("边距已重置为0")
                 return True
 
 def show_desc():
@@ -483,7 +489,7 @@ class PointCoordinates:
         self.vp_2_x_4 = int(round(VP_2_X_4_CO * mdf_hgt + left_margin, 0))
 
         # print(p_m_y, p_m_x, m_p_m_y_2, m_p_m_x_2, m_p_l_y, m_p_l_x, acc_l_y, acc_l_x, acc_r_y, acc_r_x)
-
+        
 def is_pause(frame, pc):
     if abs(
             float(sum(frame[pc.p_l_y, pc.p_l_x]) / len(frame[pc.p_l_y, pc.p_l_x]))
@@ -585,6 +591,15 @@ def lazy_pause_analyze(
         if i < start_f or i > end_f:
             keep_frame_y_n[i] = True
         else:
+            # try: 
+               # is_pause(frame, pc)
+            # except Exception as e:
+                # print(frame[pc.p_l_y, pc.p_l_x])
+                # if os.path.exists(path + "/log.txt"):
+                    # f = open(path + "/log.txt", "a")                  
+                    # f.write("error frame is " + str(i) + "\n")
+                    # f.close()
+            # else:
             if not is_pause(frame, pc):
                 if not is_acceleration(frame, pc):
                     if skip:
@@ -701,8 +716,10 @@ def lazy_version(
             cap_t = cv2.VideoCapture(video_path)
 
             start = t * frame_per_thread
-            end = (t + 1) * frame_per_thread - 1 if t != thread_num - 1 else end_f
-
+            end = (t + 1) * frame_per_thread - 1
+            
+            #print("start is", start, ", end is ", end)
+            
             thread = threading.Thread(
                 target=lazy_pause_analyze,
                 args=(
@@ -768,7 +785,7 @@ def lazy_version(
             cap_t = cv2.VideoCapture(video_path)
 
             start = t * frame_per_thread
-            end = (t + 1) * frame_per_thread if t != thread_num - 1 else frame_cnt
+            end = (t + 1) * frame_per_thread 
 
             thread = threading.Thread(
                 target=lazy_video_generate_2,
@@ -1248,10 +1265,6 @@ b_cut_with_crop = Button(
     text="点击开始自动分离/剪掉暂停（包含边距裁剪）",
     command=lambda: cut_with_crop(
         e_mode.get(),
-        e_top_margin.get(),
-        e_bottom_margin.get(),
-        e_left_margin.get(),
-        e_right_margin.get(),
         e_start_second.get(), 
         e_end_second.get(),
         e_thread_num.get(),
