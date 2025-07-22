@@ -23,6 +23,7 @@ TEMP_FILENAME = "temp_list.txt"
 TEMP_PREFIX = "out_"
 FOURCC = cv2.VideoWriter_fourcc("m", "p", "4", "v")
 DEFAULT_THREAD_NUM = 4
+DEFAULT_IGNORE_FRAME_CNT = 0
 SHOW_PROGRESS_SEG = 5
 
 P_M_Y_CO = 0.074             #(right top) pause middle coefficient
@@ -166,6 +167,10 @@ def set_thread_num(thread_num):
     e_thread_num.delete(0, END)
     e_thread_num.insert(0, thread_num)    
     
+def set_ignore_frame_cnt(ignore_frame_cnt):
+    e_ignore_frame_cnt.delete(0, END)
+    e_ignore_frame_cnt.insert(0, ignore_frame_cnt)    
+    
 def get_video_info(video_path):
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -174,6 +179,12 @@ def get_video_info(video_path):
     frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
     return fps, lgt, hgt, frame_cnt  
+    
+def get_frame_cnt(video_path):
+    cap = cv2.VideoCapture(video_path)
+    frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return frame_cnt  
     
 def measure_margin(measure_margin_second):
     if check_measure_margin_second(measure_margin_second):
@@ -345,7 +356,7 @@ def show_desc():
     l4_2.grid(row=3, column=1)
     l4_3.grid(row=3, column=2)
 
-def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, thread_num):
+def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, thread_num, ignore_frame_cnt):
     if check_thread_num(thread_num):
         if check_margin(top_margin, bottom_margin, left_margin, right_margin):
             f = open(path + "/设置.txt", "w+")
@@ -355,6 +366,7 @@ def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, 
             f.write(left_margin + "\n")
             f.write(right_margin + "\n")
             f.write(thread_num + "\n")
+            f.write(ignore_frame_cnt + "\n")
             f.close()
             messagebox.showinfo(title="消息", message="设置已保存")
         
@@ -488,7 +500,8 @@ class PointCoordinates:
         self.vp_2_x_3 = int(round(VP_2_X_3_CO * mdf_hgt + left_margin, 0))
         self.vp_2_x_4 = int(round(VP_2_X_4_CO * mdf_hgt + left_margin, 0))
 
-        # print(p_m_y, p_m_x, m_p_m_y_2, m_p_m_x_2, m_p_l_y, m_p_l_x, acc_l_y, acc_l_x, acc_r_y, acc_r_x)
+        #print(self.p_m_y, self.p_m_x, self.m_p_m_y_2, self.m_p_m_x_2, self.m_p_l_y, self.m_p_l_x, self.acc_l_y, self.acc_l_x, self.acc_r_y, self.acc_r_x)
+        #print(self.vp_y, self.vp_x_1, self.vp_x_3, self.vp_2_y, self.vp_2_x_1, self.vp_2_x_3)
         
 def is_pause(frame, pc):
     if abs(
@@ -545,6 +558,33 @@ def expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n):
                 vp_y_n[a] = True
                 a += 1
             i = a
+            
+def remove_ignore_frame_cnt_part(frame_cnt, keep_frame_y_n, vp_y_n):
+    a = 0
+    start = 0
+    flag = 0 
+    #flag 0 means keep frame_y_n = True, 1 means vp_y_n = True
+    for i in range(1, frame_cnt - 1):
+        if keep_frame_y_n[i] == True:
+            if flag == 0:
+                a += 1
+            else:
+                if a <= int(e_ignore_frame_cnt.get()):
+                    for j in range(start, i - 1):
+                        vp_y_n[j] = False
+                a = 0
+                start = i
+                flag = 0
+        elif vp_y_n[i] == True:
+            if flag == 1:
+                a += 1
+            else:
+                if a <= int(e_ignore_frame_cnt.get()):
+                    for j in range(start, i - 1):
+                        keep_frame_y_n[j] = False
+                a = 0
+                start = i
+                flag = 1
 
 def print_progress(i, start, end, start_message, end_message):
     if i == start:
@@ -563,6 +603,18 @@ def get_file_suffix(vp_value, pause_value):
         return "无效暂停"
     else:
         return ""
+
+def cleanup(working_path):
+    tc = TimeCost()
+    tc.time_start("清理片段")    
+    for root, dirs, files in os.walk(working_path):
+        for name in files:
+            if name.startswith(TEMP_PREFIX):
+                os.remove(os.path.join(root, name))
+            elif get_frame_cnt(os.path.join(root, name)) <= int(e_ignore_frame_cnt.get()):
+                os.remove(os.path.join(root, name))
+                print("片段 " + name + " 小于等于忽视帧数，已删除")
+    tc.time_end()  
 
 class TimeCost:
     def __init__(self):
@@ -747,6 +799,10 @@ def lazy_version(
         # for i in range(2760, len(keep_frame_y_n)):
             # print("i is ", i, ", keep is ", keep_frame_y_n[i])
         
+        if int(e_ignore_frame_cnt.get()) > 0:
+            remove_ignore_frame_cnt_part(frame_cnt, keep_frame_y_n, vp_y_n)
+        
+        
         tc.time_end()
 
         tc.time_start("生成视频")
@@ -815,11 +871,10 @@ def lazy_version(
         shell=True,
     )
 
-    for root, dirs, files in os.walk(working_path):
-        for name in files:
-            if name.startswith(TEMP_PREFIX):
-                os.remove(os.path.join(root, name))
     os.remove(working_path + TEMP_FILENAME)
+    
+    cleanup(working_path)
+        
 
 def normal_get_video_audio_bounds(frame_cnt, frame_per_thread, pause_y_n, thread_num):
     bounds = [0]
@@ -1161,13 +1216,7 @@ def normal_version(
 
     tc.time_end()
 
-    if has_sound:
-        tc.time_start("清理片段")
-        for root, dirs, files in os.walk(working_path):
-            for name in files:
-                if name.startswith(TEMP_PREFIX):
-                    os.remove(os.path.join(root, name))
-        tc.time_end()   
+    cleanup(working_path)
     
 # main here
 win = Tk()
@@ -1199,6 +1248,16 @@ e_right_margin = Entry(win, bg="white", font=20)
 
 set_margin(0, 0, 0, 0)
 
+l_thread_num = Label(win, text="线程数", font=20, height=2)
+e_thread_num = Entry(win, bg="white", font=20)
+
+e_thread_num.insert(0, DEFAULT_THREAD_NUM)
+
+l_ignore_frame_cnt = Label(win, text="忽视小于等于该帧数的片段", font=20, height=2)
+e_ignore_frame_cnt = Entry(win, bg="white", font=20)
+
+e_thread_num.insert(0, DEFAULT_IGNORE_FRAME_CNT)
+
 b_save_settings = Button(
     win,
     text="保存设置",
@@ -1208,7 +1267,8 @@ b_save_settings = Button(
         e_bottom_margin.get(),
         e_left_margin.get(),
         e_right_margin.get(),
-        e_thread_num.get()
+        e_thread_num.get(),
+        e_ignore_frame_cnt.get()
     ),
     font=20
 )
@@ -1240,10 +1300,7 @@ e_start_second = Entry(win, bg="white", font=20)
 l_end_second = Label(win, text="结束秒数", font=20, height=2)
 e_end_second = Entry(win, bg="white", font=20)
 
-l_thread_num = Label(win, text="线程数", font=20, height=2)
-e_thread_num = Entry(win, bg="white", font=20)
 
-e_thread_num.insert(0, DEFAULT_THREAD_NUM)
 
 b_cut_without_crop = Button(
     win,
@@ -1296,25 +1353,28 @@ e_left_margin.grid(row=6, column=1)
 l_right_margin.grid(row=7)
 e_right_margin.grid(row=7, column=1)
 
-b_save_settings.grid(row=8)
+l_thread_num.grid(row=8)
+e_thread_num.grid(row=8, column=1)
 
-l_measure_margin_second.grid(row=9)
-e_measure_margin_second.grid(row=9, column=1)
-b_measure_margin.grid(row=10)
-b_crop.grid(row=10, column=1)
+l_ignore_frame_cnt.grid(row=9)
+e_ignore_frame_cnt.grid(row=9, column=1)
 
-l_start_second.grid(row=11)
-e_start_second.grid(row=11, column=1)
-l_end_second.grid(row=12)
-e_end_second.grid(row=12, column=1)
+b_save_settings.grid(row=10)
 
-l_thread_num.grid(row=13)
-e_thread_num.grid(row=13, column=1)
+l_measure_margin_second.grid(row=11)
+e_measure_margin_second.grid(row=11, column=1)
+b_measure_margin.grid(row=12)
+b_crop.grid(row=12, column=1)
 
-b_cut_without_crop.grid(row=14, column=0)
-b_cut_with_crop.grid(row=14, column=1)
-l_tutorial.grid(row=15, column=0)
-l_tutorial_url.grid(row=15, column=1)
+l_start_second.grid(row=13)
+e_start_second.grid(row=13, column=1)
+l_end_second.grid(row=14)
+e_end_second.grid(row=14, column=1)
+
+b_cut_without_crop.grid(row=15, column=0)
+b_cut_with_crop.grid(row=15, column=1)
+l_tutorial.grid(row=16, column=0)
+l_tutorial_url.grid(row=16, column=1)
 
 if os.path.exists(path + "/设置.txt"):
     f = open(path + "/设置.txt")
@@ -1323,6 +1383,7 @@ if os.path.exists(path + "/设置.txt"):
         int(f.readline()), int(f.readline()), int(f.readline()), int(f.readline())
     )
     set_thread_num(int(f.readline()))
+    set_ignore_frame_cnt(int(f.readline()))
     f.close()
 
 win.mainloop()
