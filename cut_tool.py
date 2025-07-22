@@ -1256,7 +1256,7 @@ e_thread_num.insert(0, DEFAULT_THREAD_NUM)
 l_ignore_frame_cnt = Label(win, text="忽视小于等于该帧数的片段", font=20, height=2)
 e_ignore_frame_cnt = Entry(win, bg="white", font=20)
 
-e_thread_num.insert(0, DEFAULT_IGNORE_FRAME_CNT)
+e_ignore_frame_cnt.insert(0, DEFAULT_IGNORE_FRAME_CNT)
 
 b_save_settings = Button(
     win,
