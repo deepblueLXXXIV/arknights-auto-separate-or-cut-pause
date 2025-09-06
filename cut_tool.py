@@ -153,6 +153,12 @@ def check_thread_num(thread_num):
         return False
     return True
     
+def check_ignore_frame_cnt(ignore_frame_cnt):
+    if not(ignore_frame_cnt.isdigit()):        
+        messagebox.showerror(title="出错了！", message="忽视帧数必须为>=0的整数")
+        return False
+    return True
+    
 def set_margin(top_margin, bottom_margin, left_margin, right_margin):
     e_top_margin.delete(0, END)
     e_bottom_margin.delete(0, END)
@@ -280,27 +286,29 @@ def measure_margin(measure_margin_second):
                 return False
 
              
-def cut_with_crop(mode, start_second, end_second, thread_num, measure_margin_second):
-    if check_thread_num(thread_num):
-        if check_start_end_seconds(start_second, end_second):
-            if measure_margin(measure_margin_second):
-                if crop(                    
-                    e_top_margin.get(),
-                    e_bottom_margin.get(),
-                    e_left_margin.get(),
-                    e_right_margin.get(),
-                ):
-                    if measure_margin(measure_margin_second):
-                        cut_without_crop(
-                            mode,  
-                            e_top_margin.get(),
-                            e_bottom_margin.get(),
-                            e_left_margin.get(),
-                            e_right_margin.get(),
-                            start_second,
-                            end_second,
-                            thread_num
-                        )
+def cut_with_crop(mode, start_second, end_second, thread_num, measure_margin_second, ignore_frame_cnt):
+    if check_ignore_frame_cnt(ignore_frame_cnt):
+        if check_thread_num(thread_num):
+            if check_start_end_seconds(start_second, end_second):
+                if measure_margin(measure_margin_second):
+                    if crop(                    
+                        e_top_margin.get(),
+                        e_bottom_margin.get(),
+                        e_left_margin.get(),
+                        e_right_margin.get(),
+                    ):
+                        if measure_margin(measure_margin_second):
+                            cut_without_crop(
+                                mode,  
+                                e_top_margin.get(),
+                                e_bottom_margin.get(),
+                                e_left_margin.get(),
+                                e_right_margin.get(),
+                                start_second,
+                                end_second,
+                                thread_num,
+                                ignore_frame_cnt
+                            )
 
 def crop(top_margin, bottom_margin, left_margin, right_margin):
     video_path = check_file_and_return_path()
@@ -371,56 +379,57 @@ def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, 
             messagebox.showinfo(title="消息", message="设置已保存")
         
 def cut_without_crop(
-    mode, top_margin, bottom_margin, left_margin, right_margin, start_second, end_second, thread_num
+    mode, top_margin, bottom_margin, left_margin, right_margin, start_second, end_second, thread_num, ignore_frame_cnt
 ):
-    if check_thread_num(thread_num):
-        if check_start_end_seconds(start_second, end_second):
-            video_path = check_file_and_return_path()
-            if video_path:
-                cap = cv2.VideoCapture(video_path)
-                frame_cnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                cap.release()
-                if check_margin(top_margin, bottom_margin, left_margin, right_margin):
-                    if frame_cnt / int(fps) <= int(end_second):
-                        messagebox.showerror(title="出错了！", message="结束秒数必须小于视频长度")
-                    else:
-                        if int(fps) != fps:  # warning only not error
-                            messagebox.showinfo(
-                                title="注意",
-                                message="视频帧数为非整数，可能会有剪辑问题，推荐使用其他软件重新导出为整数帧文件，点击确定或关闭窗口以继续",
-                            )
-                        tc = TimeCost()
-                        tc.time_start("全流程")
-                        print(mode + "开始")
-                        if mode == "懒人模式（保留有效暂停）" or mode == "懒人模式（暂停全剪）":
-                            lazy_version(
-                                video_path,
-                                mode,
-                                int(top_margin),
-                                int(bottom_margin),
-                                int(left_margin),
-                                int(right_margin),
-                                int(start_second),
-                                int(end_second),
-                                int(thread_num)
-                            )
-                            # already know these variables are int, thus cast here instead of inside
-                            print("已完成，请在working_folder下查看output.mp4文件")
-                        else:  # normal mode otherwise
-                            normal_version(
-                                video_path,
-                                mode,
-                                int(top_margin),
-                                int(bottom_margin),
-                                int(left_margin),
-                                int(right_margin),
-                                int(start_second),
-                                int(end_second),
-                                int(thread_num)
-                            )
-                            print("已完成，请在working_folder下查看分离的mp4文件")
-                        tc.time_end()
+    if check_ignore_frame_cnt(ignore_frame_cnt):
+        if check_thread_num(thread_num):
+            if check_start_end_seconds(start_second, end_second):
+                video_path = check_file_and_return_path()
+                if video_path:
+                    cap = cv2.VideoCapture(video_path)
+                    frame_cnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    cap.release()
+                    if check_margin(top_margin, bottom_margin, left_margin, right_margin):
+                        if frame_cnt / int(fps) <= int(end_second):
+                            messagebox.showerror(title="出错了！", message="结束秒数必须小于视频长度")
+                        else:
+                            if int(fps) != fps:  # warning only not error
+                                messagebox.showinfo(
+                                    title="注意",
+                                    message="视频帧数为非整数，可能会有剪辑问题，推荐使用其他软件重新导出为整数帧文件，点击确定或关闭窗口以继续",
+                                )
+                            tc = TimeCost()
+                            tc.time_start("全流程")
+                            print(mode + "开始")
+                            if mode == "懒人模式（保留有效暂停）" or mode == "懒人模式（暂停全剪）":
+                                lazy_version(
+                                    video_path,
+                                    mode,
+                                    int(top_margin),
+                                    int(bottom_margin),
+                                    int(left_margin),
+                                    int(right_margin),
+                                    int(start_second),
+                                    int(end_second),
+                                    int(thread_num)
+                                )
+                                # already know these variables are int, thus cast here instead of inside
+                                print("已完成，请在working_folder下查看output.mp4文件")
+                            else:  # normal mode otherwise
+                                normal_version(
+                                    video_path,
+                                    mode,
+                                    int(top_margin),
+                                    int(bottom_margin),
+                                    int(left_margin),
+                                    int(right_margin),
+                                    int(start_second),
+                                    int(end_second),
+                                    int(thread_num)
+                                )
+                                print("已完成，请在working_folder下查看分离的mp4文件")
+                            tc.time_end()
 
 def jump_to_tutorial(event):
     webbrowser.open("https://www.bilibili.com/video/BV1qg411r7dV", new=0)
@@ -1313,7 +1322,8 @@ b_cut_without_crop = Button(
         e_right_margin.get(),
         e_start_second.get(),
         e_end_second.get(),
-        e_thread_num.get()
+        e_thread_num.get(),
+        e_ignore_frame_cnt.get()
     ),
     font=20
 )
@@ -1325,7 +1335,8 @@ b_cut_with_crop = Button(
         e_start_second.get(), 
         e_end_second.get(),
         e_thread_num.get(),
-        e_measure_margin_second.get()
+        e_measure_margin_second.get(),
+        e_ignore_frame_cnt.get()
     ),
     font=20
 )
