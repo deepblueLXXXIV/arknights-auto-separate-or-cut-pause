@@ -16,6 +16,9 @@ import threading
 #global variable
 path = os.getcwd()
 working_path = path + "\\working_folder\\"
+                    
+array_1 = []
+array_2 = []
 
 #constants
 
@@ -47,11 +50,12 @@ VP_X_2_CO = 0.093
 VP_X_3_CO = 0.139
 VP_X_4_CO = 0.185
 
-VP_2_Y_CO = 0.389   #second option to check valid pause
-VP_2_X_1_CO = 0.188 #wendi
-VP_2_X_2_CO = 0.197 #niaolong(mozu)
-VP_2_X_3_CO = 0.206 #m3
-VP_2_X_4_CO = 0.217 #panxie
+#disable following as new UI always work with first way of checking
+#VP_2_Y_CO = 0.389   #second option to check valid pause
+#VP_2_X_1_CO = 0.188 #wendi
+#VP_2_X_2_CO = 0.197 #niaolong(mozu)
+#VP_2_X_3_CO = 0.206 #m3
+#VP_2_X_4_CO = 0.217 #panxie
 
 WHITE_10 = np.array([240, 240, 240])
 WHITE_9 = np.array([200, 200, 200])  # the number indicates the white level
@@ -141,6 +145,12 @@ def check_measure_margin_second(measure_margin_second):
         return False
     return True
     
+def check_set_second(set_second):
+    if not set_second.replace(".", "", 1).isdigit():
+        messagebox.showerror(title="出错了！", message="手动设置检测点画面秒数有误（需大于0的数字，接受小数）")
+        return False
+    return True  
+    
 def check_measure_margin_second_2(measure_margin_second, fps, frame_cnt):
     if measure_margin_second >= frame_cnt / fps:
         messagebox.showerror(title="出错了！", message="检测边距秒数必须小于视频长度")
@@ -158,7 +168,13 @@ def check_ignore_frame_cnt(ignore_frame_cnt):
         messagebox.showerror(title="出错了！", message="忽视帧数必须为>=0的整数")
         return False
     return True
-    
+
+def check_coordinates_setting():
+    if not(len(array_1) == 4 and len(array_2) == 8):     
+        messagebox.showerror(title="出错了！", message="未设置检测点")
+        return False
+    return True
+
 def set_margin(top_margin, bottom_margin, left_margin, right_margin):
     e_top_margin.delete(0, END)
     e_bottom_margin.delete(0, END)
@@ -176,7 +192,54 @@ def set_thread_num(thread_num):
 def set_ignore_frame_cnt(ignore_frame_cnt):
     e_ignore_frame_cnt.delete(0, END)
     e_ignore_frame_cnt.insert(0, ignore_frame_cnt)    
-    
+
+def set_coordinates():
+    if os.path.exists(path + "/检测点.txt"):
+        f = open(path + "/检测点.txt")
+        
+        for i in range(4):
+            coord = [int(f.readline()) , int(f.readline())]
+            array_1.append(coord)
+            
+        for i in range(4):
+            coord = [int(f.readline()) , int(f.readline())]
+            array_2.append(coord)
+        
+        valid_pause_y = int(f.readline())
+        
+        for i in range(4):
+            coord = [valid_pause_y , int(f.readline())]
+            array_2.append(coord)
+        
+        set_coordinates_labels()        
+        
+        #print(array_1)
+        #print(array_2)
+        
+        f.close()
+   
+def set_coordinates_labels():
+    if len(array_1) == 4 and len(array_2) == 8:
+        l_acc_right.config(text=str(array_1[0][0])+","+str(array_1[0][1]))
+        l_acc_left.config(text=str(array_1[1][0])+","+str(array_1[1][1]))
+        l_pause_middle.config(text=str(array_1[2][0])+","+str(array_1[2][1]))
+        l_pause_left.config(text=str(array_1[3][0])+","+str(array_1[3][1]))
+        l_middle_pause_left.config(text=str(array_2[0][0])+","+str(array_2[0][1]))
+        l_middle_pause_middle_2.config(text=str(array_2[1][0])+","+str(array_2[1][1]))
+        l_middle_pause_middle.config(text=str(array_2[2][0])+","+str(array_2[2][1]))
+        l_middle_pause_right.config(text=str(array_2[3][0])+","+str(array_2[3][1]))
+        l_valid_pause.config(text=str(array_2[4][0])+","+str(array_2[4][1])+","+str(array_2[5][1])+","+str(array_2[6][1])+","+str(array_2[7][1]))   
+    else:
+        l_acc_right.config(text="y,x")
+        l_acc_left.config(text="y,x")
+        l_pause_middle.config(text="y,x")
+        l_pause_left.config(text="y,x")
+        l_middle_pause_left.config(text="y,x")
+        l_middle_pause_middle_2.config(text="y,x")
+        l_middle_pause_middle.config(text="y,x")
+        l_middle_pause_right.config(text="y,x")
+        l_valid_pause.config(text="y,x1,x2,x3,x4")
+ 
 def get_video_info(video_path):
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -377,63 +440,178 @@ def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, 
             f.write(ignore_frame_cnt + "\n")
             f.close()
             messagebox.showinfo(title="消息", message="设置已保存")
+
+def manual_set_save():
+    if check_coordinates_setting():
+        f = open(path + "/检测点.txt", "w+")
+        f.write(str(array_1[0][0]) + "\n")
+        f.write(str(array_1[0][1]) + "\n")
+        f.write(str(array_1[1][0]) + "\n")
+        f.write(str(array_1[1][1]) + "\n")
+        f.write(str(array_1[2][0]) + "\n")
+        f.write(str(array_1[2][1]) + "\n")
+        f.write(str(array_1[3][0]) + "\n")
+        f.write(str(array_1[3][1]) + "\n")
+        f.write(str(array_2[0][0]) + "\n")
+        f.write(str(array_2[0][1]) + "\n")
+        f.write(str(array_2[1][0]) + "\n")
+        f.write(str(array_2[1][1]) + "\n")
+        f.write(str(array_2[2][0]) + "\n")
+        f.write(str(array_2[2][1]) + "\n")
+        f.write(str(array_2[3][0]) + "\n")
+        f.write(str(array_2[3][1]) + "\n")
+        f.write(str(array_2[4][0]) + "\n")
+        f.write(str(array_2[4][1]) + "\n")
+        f.write(str(array_2[5][1]) + "\n")
+        f.write(str(array_2[6][1]) + "\n")
+        f.write(str(array_2[7][1]) + "\n")
+        f.close()
+        messagebox.showinfo(title="消息", message="检测点坐标已保存")
         
 def cut_without_crop(
     mode, top_margin, bottom_margin, left_margin, right_margin, start_second, end_second, thread_num, ignore_frame_cnt
 ):
-    if check_ignore_frame_cnt(ignore_frame_cnt):
-        if check_thread_num(thread_num):
-            if check_start_end_seconds(start_second, end_second):
-                video_path = check_file_and_return_path()
-                if video_path:
-                    cap = cv2.VideoCapture(video_path)
-                    frame_cnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-                    fps = cap.get(cv2.CAP_PROP_FPS)
-                    cap.release()
-                    if check_margin(top_margin, bottom_margin, left_margin, right_margin):
-                        if frame_cnt / int(fps) <= int(end_second):
-                            messagebox.showerror(title="出错了！", message="结束秒数必须小于视频长度")
-                        else:
-                            if int(fps) != fps:  # warning only not error
-                                messagebox.showinfo(
-                                    title="注意",
-                                    message="视频帧数为非整数，可能会有剪辑问题，推荐使用其他软件重新导出为整数帧文件，点击确定或关闭窗口以继续",
-                                )
-                            tc = TimeCost()
-                            tc.time_start("全流程")
-                            print(mode + "开始")
-                            if mode == "懒人模式（保留有效暂停）" or mode == "懒人模式（暂停全剪）":
-                                lazy_version(
-                                    video_path,
-                                    mode,
-                                    int(top_margin),
-                                    int(bottom_margin),
-                                    int(left_margin),
-                                    int(right_margin),
-                                    int(start_second),
-                                    int(end_second),
-                                    int(thread_num)
-                                )
-                                # already know these variables are int, thus cast here instead of inside
-                                print("已完成，请在working_folder下查看output.mp4文件")
-                            else:  # normal mode otherwise
-                                normal_version(
-                                    video_path,
-                                    mode,
-                                    int(top_margin),
-                                    int(bottom_margin),
-                                    int(left_margin),
-                                    int(right_margin),
-                                    int(start_second),
-                                    int(end_second),
-                                    int(thread_num)
-                                )
-                                print("已完成，请在working_folder下查看分离的mp4文件")
-                            tc.time_end()
+    if e_manual_set_or_not.get() == "否" or check_coordinates_setting():
+        if check_ignore_frame_cnt(ignore_frame_cnt):
+            if check_thread_num(thread_num):
+                if check_start_end_seconds(start_second, end_second):
+                    video_path = check_file_and_return_path()
+                    if video_path:
+                        cap = cv2.VideoCapture(video_path)
+                        frame_cnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        cap.release()
+                        if check_margin(top_margin, bottom_margin, left_margin, right_margin):
+                            if frame_cnt / int(fps) <= int(end_second):
+                                messagebox.showerror(title="出错了！", message="结束秒数必须小于视频长度")
+                            else:
+                                if int(fps) != fps:  # warning only not error
+                                    messagebox.showinfo(
+                                        title="注意",
+                                        message="视频帧数为非整数，可能会有剪辑问题，推荐使用其他软件重新导出为整数帧文件，点击确定或关闭窗口以继续",
+                                    )
+                                tc = TimeCost()
+                                tc.time_start("全流程")
+                                print(mode + "开始")
+                                if mode == "懒人模式（保留有效暂停）" or mode == "懒人模式（暂停全剪）":
+                                    lazy_version(
+                                        video_path,
+                                        mode,
+                                        int(top_margin),
+                                        int(bottom_margin),
+                                        int(left_margin),
+                                        int(right_margin),
+                                        int(start_second),
+                                        int(end_second),
+                                        int(thread_num)
+                                    )
+                                    # already know these variables are int, thus cast here instead of inside
+                                    print("已完成，请在working_folder下查看output.mp4文件")
+                                else:  # normal mode otherwise
+                                    normal_version(
+                                        video_path,
+                                        mode,
+                                        int(top_margin),
+                                        int(bottom_margin),
+                                        int(left_margin),
+                                        int(right_margin),
+                                        int(start_second),
+                                        int(end_second),
+                                        int(thread_num)
+                                    )
+                                    print("已完成，请在working_folder下查看分离的mp4文件")
+                                tc.time_end()
 
 def jump_to_tutorial(event):
     webbrowser.open("https://www.bilibili.com/video/BV1qg411r7dV", new=0)
 
+
+def set_coordinates_sample():
+    img2 = cv2.imread('sample2.jpg')
+    img = cv2.imread('sample1.jpg')
+    if img2 is None or img is None:
+        messagebox.showerror(title="出错了！", message="示例图不存在请重新下载")
+    else:
+        cv2.namedWindow("Sample_2", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Sample_2", (960,540))
+        cv2.imshow('Sample_2', img2)
+        
+        cv2.namedWindow("Sample_1", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Sample_1", (960,540))
+        cv2.imshow('Sample_1', img)
+
+def set_coordinates_manually(set_second_1, set_second_2):
+    array_1.clear()
+    array_2.clear()
+    if check_set_second(set_second_1):
+        if check_set_second(set_second_2):
+            video_path = check_file_and_return_path()
+            if video_path:
+                fps, lgt, hgt, frame_cnt = get_video_info(video_path)
+                cap = cv2.VideoCapture(video_path)
+                    
+                cap.set(
+                    cv2.CAP_PROP_POS_FRAMES, int(fps * float(set_second_1))
+                )
+                ret, frame = cap.read()
+                
+                if ret:
+                    cv2.namedWindow("Frame_1", cv2.WINDOW_NORMAL)
+                    messagebox.showinfo(title="消息", message="请参考示例图1按顺序点击以下4个点（红叉中心位置）：\n第一个点请点击右上角1倍速X正下方的三角形白色区域\n第二个点请点击右上角1倍速1正下方的灰色区域\n第三个点请点击右上角暂停正中的灰色区域\n第四个点请点击右上角暂停靠左的白色区域")
+                    cv2.setWindowProperty("Frame_1", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                    cv2.imshow('Frame_1', frame)
+                    
+                    cv2.setMouseCallback('Frame_1', mouse_callback_1, array_1) 
+                    
+                else:
+                    messagebox.showerror(title="出错了！", message="画面读取失败")
+                cv2.waitKey()
+                if len(array_1) < 4:
+                    messagebox.showerror(title="出错了！", message="未设置4个点请重新设置")
+                    if cv2.getWindowProperty('Frame_1', cv2.WND_PROP_VISIBLE):
+                        cv2.destroyWindow('Frame_1')
+                else:  
+                    cap.set(
+                        cv2.CAP_PROP_POS_FRAMES, int(fps * float(set_second_2))
+                    )
+                    ret, frame = cap.read()
+                    cap.release()
+                    
+                    if ret:
+                        cv2.namedWindow("Frame_2", cv2.WINDOW_NORMAL)
+                        messagebox.showinfo(title="消息", message="请参考示例图2按顺序点击以下8个点（红叉中心位置）：\n第一个点请点击中间P字母的T型连接处\n第二个点请点击中间U字母中间的灰色区域\n第三个点请点击中间U字母靠下的白色区域\n第四个点请点击中间E字母的T型连接处靠上的白色区域\n第五至第八个点请点击左侧技能二字上方的灰色条状（纵坐标必须与灰色条状持平 横坐标比较平均的点上就可以）")
+                        cv2.setWindowProperty("Frame_2", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                        cv2.imshow('Frame_2', frame)
+                    
+                        cv2.setMouseCallback('Frame_2', mouse_callback_2, array_2) 
+                        
+                    else:
+                        messagebox.showerror(title="出错了！", message="画面读取失败")
+                    cv2.waitKey()
+                    if len(array_2) < 8:
+                        messagebox.showerror(title="出错了！", message="未设置8个点请重新设置")
+                        if cv2.getWindowProperty('Frame_2', cv2.WND_PROP_VISIBLE):
+                            cv2.destroyWindow('Frame_2')                                                
+                set_coordinates_labels()
+                        
+def mouse_callback_1(event, x, y, flags, param):
+    if len(param) >= 4:
+        cv2.destroyWindow('Frame_1')
+    elif event == cv2.EVENT_LBUTTONDOWN:
+        coord = [y, x]
+        param.append(coord)
+        #print(f"ROI selected: ({y},{x}) ")
+        #print(param)
+        
+def mouse_callback_2(event, x, y, flags, param):
+    if len(param) >= 8:
+        cv2.destroyWindow('Frame_2')
+    elif event == cv2.EVENT_LBUTTONDOWN:
+        coord = [y, x]
+        param.append(coord)
+        #print(f"ROI selected: ({y},{x}) ")
+        #print(param)
+            
 class PointCoordinates:
     def __init__(self):
         self.p_m_y, self.p_m_x = 0, 0
@@ -448,69 +626,101 @@ class PointCoordinates:
         self.acc_r_y, self.acc_r_x = 0, 0
 
         self.vp_y, self.vp_x_1, self.vp_x_2, self.vp_x_3, self.vp_x_4 = 0, 0, 0, 0, 0
-        self.vp_2_y, self.vp_2_x_1, self.vp_2_x_2, self.vp_2_x_3, self.vp_2_x_4 = (
-            0,
-            0,
-            0,
-            0,
-            0
-        )
+        # self.vp_2_y, self.vp_2_x_1, self.vp_2_x_2, self.vp_2_x_3, self.vp_2_x_4 = (
+            # 0,
+            # 0,
+            # 0,
+            # 0,
+            # 0
+        # )
 
-    def calculate_coordinates(
+    def calculate_or_use_coordinates(
         self, lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
     ):
-        act_hgt = hgt - top_margin - bottom_margin
-        act_lgt = lgt - left_margin - right_margin
-        
-        if act_lgt * 1080 < act_hgt * 1920:
-            mdf_hgt = int(round(act_lgt / 1920 * 1080, 0))
+        if e_manual_set_or_not.get() == "是":
+            self.acc_r_y = array_1[0][0]
+            self.acc_r_x = array_1[0][1]
+            self.acc_l_y = array_1[1][0]
+            self.acc_l_x = array_1[1][1]
+            self.p_m_y = array_1[2][0]
+            self.p_m_x = array_1[2][1]
+            self.p_l_y = array_1[3][0]
+            self.p_l_x = array_1[3][1]
+            self.m_p_l_y = array_2[0][0]
+            self.m_p_l_x = array_2[0][1]
+            self.m_p_m_y_2 = array_2[1][0]
+            self.m_p_m_x_2 = array_2[1][1]
+            self.m_p_m_y = array_2[2][0]
+            self.m_p_m_x = array_2[2][1]
+            self.m_p_r_y = array_2[3][0]
+            self.m_p_r_x = array_2[3][1]
+            self.vp_y = array_2[4][0]
+            self.vp_x_1 = array_2[4][1]
+            self.vp_x_2 = array_2[5][1]
+            self.vp_x_3 = array_2[6][1]
+            self.vp_x_4 = array_2[7][1]
         else:
-            mdf_hgt = act_hgt
+            act_hgt = hgt - top_margin - bottom_margin
+            act_lgt = lgt - left_margin - right_margin
+            
+            if act_lgt * 1080 < act_hgt * 1920:
+                mdf_hgt = int(round(act_lgt / 1920 * 1080, 0))
+            else:
+                mdf_hgt = act_hgt
 
-        self.p_m_y = int(round(P_M_Y_CO * mdf_hgt + top_margin, 0))
-        self.p_m_x = int(round(lgt - P_M_X_CO * mdf_hgt - right_margin, 0))
-        # right top || middle
-        self.p_l_y = self.p_m_y
-        self.p_l_x = int(round(lgt - P_L_X_CO * mdf_hgt - right_margin, 0))
-        # right top || left
+            self.p_m_y = int(round(P_M_Y_CO * mdf_hgt + top_margin, 0))
+            self.p_m_x = int(round(lgt - P_M_X_CO * mdf_hgt - right_margin, 0))
+            # right top || middle
+            self.p_l_y = self.p_m_y
+            self.p_l_x = int(round(lgt - P_L_X_CO * mdf_hgt - right_margin, 0))
+            # right top || left
 
-        self.m_p_m_y_2 = int(round(M_P_M_Y_2_CO * act_hgt + top_margin, 0))
-        self.m_p_m_x_2 = int(
-            round(M_P_M_X_2_CO * (lgt - left_margin - right_margin) + left_margin, 0)
-        )
-        # middle PAUSE point (black point)
+            self.m_p_m_y_2 = int(round(M_P_M_Y_2_CO * act_hgt + top_margin, 0))
+            self.m_p_m_x_2 = int(
+                round(M_P_M_X_2_CO * (lgt - left_margin - right_margin) + left_margin, 0)
+            )
+            # middle PAUSE point (black point)
 
-        self.m_p_l_y = int(round(self.m_p_m_y_2 + M_P_L_Y_CO * mdf_hgt, 0))
-        self.m_p_l_x = int(round(self.m_p_m_x_2 - M_P_L_X_CO * mdf_hgt, 0))
-        # middle PAUSE left point (white point)
-        self.m_p_m_y = int(round(self.m_p_m_y_2 + M_P_M_Y_CO * mdf_hgt, 0))
-        self.m_p_m_x = self.m_p_m_x_2
-        # middle PAUSE middle point (white point)
-        self.m_p_r_y = int(round(self.m_p_m_y_2 - M_P_R_Y_CO * mdf_hgt, 0))
-        self.m_p_r_x = int(round(self.m_p_m_x_2 + M_P_R_X_CO * mdf_hgt, 0))
-        # middle PAUSE right point (white point)
+            self.m_p_l_y = int(round(self.m_p_m_y_2 + M_P_L_Y_CO * mdf_hgt, 0))
+            self.m_p_l_x = int(round(self.m_p_m_x_2 - M_P_L_X_CO * mdf_hgt, 0))
+            # middle PAUSE left point (white point)
+            self.m_p_m_y = int(round(self.m_p_m_y_2 + M_P_M_Y_CO * mdf_hgt, 0))
+            self.m_p_m_x = self.m_p_m_x_2
+            # middle PAUSE middle point (white point)
+            self.m_p_r_y = int(round(self.m_p_m_y_2 - M_P_R_Y_CO * mdf_hgt, 0))
+            self.m_p_r_x = int(round(self.m_p_m_x_2 + M_P_R_X_CO * mdf_hgt, 0))
+            # middle PAUSE right point (white point)
 
-        self.acc_l_y = int(round(ACC_L_Y_CO * mdf_hgt + top_margin, 0))
-        self.acc_l_x = int(round(lgt - ACC_L_X_CO * mdf_hgt - right_margin, 0))
-        self.acc_r_y = self.acc_l_y
-        self.acc_r_x = int(round(lgt - ACC_R_X_CO * mdf_hgt - right_margin, 0))
+            self.acc_l_y = int(round(ACC_L_Y_CO * mdf_hgt + top_margin, 0))
+            self.acc_l_x = int(round(lgt - ACC_L_X_CO * mdf_hgt - right_margin, 0))
+            self.acc_r_y = self.acc_l_y
+            self.acc_r_x = int(round(lgt - ACC_R_X_CO * mdf_hgt - right_margin, 0))
 
-        self.vp_y = int(round(VP_Y_CO * act_hgt + top_margin, 0))
-        self.vp_x_1 = int(round(VP_X_1_CO * mdf_hgt + left_margin, 0))
-        self.vp_x_2 = int(round(VP_X_2_CO * mdf_hgt + left_margin, 0))
-        self.vp_x_3 = int(round(VP_X_3_CO * mdf_hgt + left_margin, 0))
-        self.vp_x_4 = int(round(VP_X_4_CO * mdf_hgt + left_margin, 0))
+            self.vp_y = int(round(VP_Y_CO * act_hgt + top_margin, 0))
+            self.vp_x_1 = int(round(VP_X_1_CO * mdf_hgt + left_margin, 0))
+            self.vp_x_2 = int(round(VP_X_2_CO * mdf_hgt + left_margin, 0))
+            self.vp_x_3 = int(round(VP_X_3_CO * mdf_hgt + left_margin, 0))
+            self.vp_x_4 = int(round(VP_X_4_CO * mdf_hgt + left_margin, 0))
 
-        self.vp_2_y = int(
-            round(VP_Y_CO * act_hgt + top_margin - (VP_Y_CO - VP_2_Y_CO) * mdf_hgt, 0)
-        )
-        self.vp_2_x_1 = int(round(VP_2_X_1_CO * mdf_hgt + left_margin, 0))
-        self.vp_2_x_2 = int(round(VP_2_X_2_CO * mdf_hgt + left_margin, 0))
-        self.vp_2_x_3 = int(round(VP_2_X_3_CO * mdf_hgt + left_margin, 0))
-        self.vp_2_x_4 = int(round(VP_2_X_4_CO * mdf_hgt + left_margin, 0))
+            # self.vp_2_y = int(
+                # round(VP_Y_CO * act_hgt + top_margin - (VP_Y_CO - VP_2_Y_CO) * mdf_hgt, 0)
+            # )
+            # self.vp_2_x_1 = int(round(VP_2_X_1_CO * mdf_hgt + left_margin, 0))
+            # self.vp_2_x_2 = int(round(VP_2_X_2_CO * mdf_hgt + left_margin, 0))
+            # self.vp_2_x_3 = int(round(VP_2_X_3_CO * mdf_hgt + left_margin, 0))
+            # self.vp_2_x_4 = int(round(VP_2_X_4_CO * mdf_hgt + left_margin, 0))
 
-        #print(self.p_m_y, self.p_m_x, self.m_p_m_y_2, self.m_p_m_x_2, self.m_p_l_y, self.m_p_l_x, self.acc_l_y, self.acc_l_x, self.acc_r_y, self.acc_r_x)
-        #print(self.vp_y, self.vp_x_1, self.vp_x_3, self.vp_2_y, self.vp_2_x_1, self.vp_2_x_3)
+            #print(self.p_m_y, self.p_m_x)
+            #print(self.p_l_y, self.p_l_x)
+            #print(self.m_p_m_y_2, self.m_p_m_x_2)
+            #print(self.m_p_l_y, self.m_p_l_x)
+            #print(self.m_p_m_y, self.m_p_m_x)
+            #print(self.m_p_r_y, self.m_p_r_x)
+            #print(self.acc_l_y, self.acc_l_x)
+            #print(self.acc_r_y, self.acc_r_x)
+            #print(self.vp_y, self.vp_x_1, self.vp_x_2, self.vp_x_3, self.vp_x_4)
+            #print(self.vp_2_y, self.vp_2_x_1, self.vp_2_x_2, self.vp_2_x_3, self.vp_2_x_4)
+        
         
 def is_pause(frame, pc):
     if abs(
@@ -551,8 +761,8 @@ def is_valid_pause(frame, pc):
                 for x in (pc.vp_x_1,  pc.vp_x_2,  pc.vp_x_3,  pc.vp_x_4)
             ):
                 return True 
-    white_cols = (pc.vp_2_x_1,  pc.vp_2_x_2,  pc.vp_2_x_3,  pc.vp_2_x_4) 
-    return any(all(frame[pc.vp_2_y, col] > WHITE_10) for col in white_cols)
+    #white_cols = (pc.vp_2_x_1,  pc.vp_2_x_2,  pc.vp_2_x_3,  pc.vp_2_x_4) 
+    #return any(all(frame[pc.vp_2_y, col] > WHITE_10) for col in white_cols)
 
 def expand_valid_pause_range(frame_cnt, pause_y_n, vp_y_n):
     for i in range(1, frame_cnt - 1):
@@ -624,6 +834,39 @@ def cleanup(working_path):
                 os.remove(os.path.join(root, name))
                 print("片段 " + name + " 小于等于忽视帧数，已删除")
     tc.time_end()  
+
+
+def update_entry_state(event):
+    if e_manual_set_or_not.get() == "是":
+        e_top_margin.config(state="disable")
+        e_bottom_margin.config(state="disable")
+        e_left_margin.config(state="disable")
+        e_right_margin.config(state="disabled")
+        b_save_settings.config(state="disabled")
+        e_measure_margin_second.config(state="disabled")
+        b_measure_margin.config(state="disabled")
+        b_crop.config(state="disabled")
+        b_cut_with_crop.config(state="disabled")
+        e_manual_set_second_1.config(state="normal")
+        e_manual_set_second_2.config(state="normal")
+        b_manual_set.config(state="normal")
+        b_manual_set_sample.config(state="normal")
+        b_manual_set_save.config(state="normal")  
+    else:
+        e_top_margin.config(state="normal")
+        e_bottom_margin.config(state="normal")
+        e_left_margin.config(state="normal")
+        e_right_margin.config(state="normal")
+        b_save_settings.config(state="normal")
+        e_measure_margin_second.config(state="normal")
+        b_measure_margin.config(state="normal")
+        b_crop.config(state="normal")
+        b_cut_with_crop.config(state="normal")
+        e_manual_set_second_1.config(state="disabled")
+        e_manual_set_second_2.config(state="disabled")
+        b_manual_set.config(state="disabled")
+        b_manual_set_sample.config(state="disabled")  
+        b_manual_set_save.config(state="disabled")  
 
 class TimeCost:
     def __init__(self):
@@ -757,7 +1000,7 @@ def lazy_version(
     end_f = end_second * fps  # end frame   (will keep frames after this)
 
     pc = PointCoordinates()
-    pc.calculate_coordinates(
+    pc.calculate_or_use_coordinates(
         lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
     )
 
@@ -1096,7 +1339,7 @@ def normal_version(
     end_f = end_second * fps  # end frame   (will keep frames after this)
 
     pc = PointCoordinates()
-    pc.calculate_coordinates(
+    pc.calculate_or_use_coordinates(
         lgt, hgt, top_margin, bottom_margin, left_margin, right_margin
     )
 
@@ -1231,7 +1474,7 @@ def normal_version(
 win = Tk()
 win.title("明日方舟自动分离/剪掉暂停")
 
-win.geometry(str(1100 + len(path.encode("utf-8")) * 5) + "x850")
+win.geometry(str(1300 + len(path.encode("utf-8")) * 5) + "x900")
 
 l_text_working_path = Label(win, text="当前工作目录", font=20, height=3)
 l_working_path = Label(win, text=working_path, bg="lightgray", font=20, height=3)
@@ -1303,14 +1546,6 @@ b_crop = Button(
     font=20
 )
 
-l_start_second = Label(win, text="开始秒数", font=20, height=2)
-e_start_second = Entry(win, bg="white", font=20)
-
-l_end_second = Label(win, text="结束秒数", font=20, height=2)
-e_end_second = Entry(win, bg="white", font=20)
-
-
-
 b_cut_without_crop = Button(
     win,
     text="点击开始自动分离/剪掉暂停（不包含边距裁剪）",
@@ -1348,6 +1583,66 @@ l_tutorial_url = Label(
     win, text="www.bilibili.com/video/BV1qg411r7dV", font=ft, fg="blue", height=2
 )
 l_tutorial_url.bind("<ButtonPress-1>", jump_to_tutorial)
+
+
+l_start_second = Label(win, text="开始秒数", font=20, height=2)
+e_start_second = Entry(win, bg="white", font=20)
+
+l_end_second = Label(win, text="结束秒数", font=20, height=2)
+e_end_second = Entry(win, bg="white", font=20)
+
+
+
+
+l_manual_set_second = Label(win, text="手动设置检测点画面秒数（支持小数）", font=20, height=2)
+e_manual_set_second_1 = Entry(win, bg="white", font=20, width=10)
+e_manual_set_second_2 = Entry(win, bg="white", font=20, width=10)
+b_manual_set = Button(
+    win,
+    text="手动设置",
+    command=lambda: set_coordinates_manually(e_manual_set_second_1.get(),e_manual_set_second_2.get()),
+    font=20
+)
+b_manual_set_sample = Button(
+    win,
+    text="设置示例图",
+    command=lambda: set_coordinates_sample(),
+    font=20
+)
+b_manual_set_save = Button(
+    win,
+    text="保存检测点",
+    command=lambda: manual_set_save(),
+    font=20
+)
+l_pause_middle = Label(win, text="y,x", font=20, height=2)
+l_pause_left = Label(win, text="y,x", font=20, height=2) 
+
+l_frame_desc = Label(win, text="请参考示例图", font=20, height=2)
+l_frame_1_desc = Label(win, text="前者秒数为1倍速无暂停画面", font=20, height=2)
+l_frame_2_desc = Label(win, text="后者秒数为有效暂停画面", font=20, height=2)
+ 
+l_acc_left = Label(win, text="y,x", font=20, height=2)
+l_acc_right = Label(win, text="y,x", font=20, height=2)
+
+l_middle_pause_middle_2 = Label(win, text="y,x", font=20, height=2)
+l_middle_pause_left = Label(win, text="y,x", font=20, height=2)
+l_middle_pause_middle = Label(win, text="y,x", font=20, height=2)
+l_middle_pause_right = Label(win, text="y,x", font=20, height=2)
+
+l_valid_pause = Label(win, text="y,x1,x2,x3,x4", font=20, height=2)
+#l_valid_pause_2 = Label(win, text="y,x1,x2,x3,x4", font=20, height=2)
+
+l_manual_set_or_not = Label(win, text="是否手动设置检测点", font=20, height=3)
+
+e_manual_set_or_not = ttk.Combobox(win, values=["否","是"], font=20, height=4, width=10)
+e_manual_set_or_not.current(0)
+e_manual_set_second_1.config(state="disabled")
+e_manual_set_second_2.config(state="disabled")
+b_manual_set.config(state="disabled")
+b_manual_set_sample.config(state="disabled")  
+b_manual_set_save.config(state="disabled")  
+e_manual_set_or_not.bind("<<ComboboxSelected>>", update_entry_state)
 
 l_text_working_path.grid(row=0)
 l_working_path.grid(row=0, column=1)
@@ -1387,6 +1682,29 @@ b_cut_with_crop.grid(row=15, column=1)
 l_tutorial.grid(row=16, column=0)
 l_tutorial_url.grid(row=16, column=1)
 
+l_manual_set_or_not.grid(row=4, column=2)
+e_manual_set_or_not.grid(row=4, column=3)
+l_manual_set_second.grid(row=5, column=2)
+e_manual_set_second_1.grid(row=5, column=3)
+e_manual_set_second_2.grid(row=5, column=4)
+b_manual_set.grid(row=6, column=2)
+b_manual_set_sample.grid(row=6, column=3)
+b_manual_set_save.grid(row=6,column=4)
+l_acc_right.grid(row=7, column=2)
+l_acc_left.grid(row=8, column=2)
+l_frame_desc.grid(row=7, column=3, columnspan=2)
+l_frame_1_desc.grid(row=8, column=3, columnspan=2)
+l_frame_2_desc.grid(row=9, column=3, columnspan=2)
+l_pause_middle.grid(row=9, column=2)
+l_pause_left.grid(row=10, column=2)
+l_middle_pause_left.grid(row=11, column=2)
+l_middle_pause_middle_2.grid(row=12, column=2)
+l_middle_pause_middle.grid(row=13, column=2)
+l_middle_pause_right.grid(row=14, column=2)
+l_valid_pause.grid(row=15, column=2)
+#l_valid_pause_2.grid(row=16, column=2)
+
+
 if os.path.exists(path + "/设置.txt"):
     f = open(path + "/设置.txt")
     e_mode.current(int(f.readline()))
@@ -1396,5 +1714,8 @@ if os.path.exists(path + "/设置.txt"):
     set_thread_num(int(f.readline()))
     set_ignore_frame_cnt(int(f.readline()))
     f.close()
+
+set_coordinates()
+
 
 win.mainloop()
