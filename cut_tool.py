@@ -756,10 +756,16 @@ def is_valid_pause(frame, pc):
     if all(frame[pc.vp_y -5, pc.vp_x_1]  < BLACK_9):
         for dy in [0, -1, 1]:  # offset
             row = pc.vp_y  + dy 
-            if (all(GRAY_LOWER <= frame[row, x])
-                and all(frame[row, x] <= GRAY_UPPER) 
-                for x in (pc.vp_x_1,  pc.vp_x_2,  pc.vp_x_3,  pc.vp_x_4)
+            if (all(GRAY_LOWER <= frame[row, pc.vp_x_1])
+                and all(frame[row, pc.vp_x_1] <= GRAY_UPPER) 
+                and all(GRAY_LOWER <= frame[row, pc.vp_x_2])
+                and all(frame[row, pc.vp_x_2] <= GRAY_UPPER) 
+                and all(GRAY_LOWER <= frame[row, pc.vp_x_3])
+                and all(frame[row, pc.vp_x_3] <= GRAY_UPPER) 
+                and all(GRAY_LOWER <= frame[row, pc.vp_x_4])
+                and all(frame[row, pc.vp_x_4] <= GRAY_UPPER) 
             ):
+                #print(frame[row, pc.vp_x_1],frame[row, pc.vp_x_2],frame[row, pc.vp_x_3],frame[row, pc.vp_x_4])
                 return True 
     #white_cols = (pc.vp_2_x_1,  pc.vp_2_x_2,  pc.vp_2_x_3,  pc.vp_2_x_4) 
     #return any(all(frame[pc.vp_2_y, col] > WHITE_10) for col in white_cols)
@@ -1164,6 +1170,7 @@ def normal_pause_analyze(
                     pause_y_n[i] = True
                     if is_valid_pause(frame, pc):
                         vp_y_n[i] = True
+                        #print("frame ", i, " is valid pause")
                 print_progress(
                     i,
                     start,
