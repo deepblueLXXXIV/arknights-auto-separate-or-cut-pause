@@ -16,6 +16,8 @@ import threading
 #global variable
 path = os.getcwd()
 working_path = path + "\\working_folder\\"
+bin_path = path + "\\bin\\"
+os.environ['PATH'] = bin_path + os.pathsep + os.environ.get('PATH','')
                     
 array_1 = []
 array_2 = []
@@ -834,12 +836,13 @@ def cleanup(working_path):
     tc.time_start("清理片段")    
     for root, dirs, files in os.walk(working_path):
         for name in files:
+            full_file_path = os.path.join(root, name)
             if name.startswith(TEMP_PREFIX):
-                os.remove(os.path.join(root, name))
-            elif get_frame_cnt(os.path.join(root, name)) <= int(e_ignore_frame_cnt.get()):
-                os.remove(os.path.join(root, name))
+                os.remove(full_file_path)
+            elif get_frame_cnt(full_file_path) <= int(e_ignore_frame_cnt.get()) and os.path.splitext(full_file_path)[-1].split(".")[1] == 'mp4':
+                os.remove(full_file_path)
                 print("片段 " + name + " 小于等于忽视帧数，已删除")
-    tc.time_end()  
+    tc.time_end()
 
 
 def update_entry_state(event):
