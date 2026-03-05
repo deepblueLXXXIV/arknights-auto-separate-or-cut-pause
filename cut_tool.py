@@ -34,13 +34,13 @@ SHOW_PROGRESS_SEG = 5
 P_M_Y_CO = 0.074             #(right top) pause middle coefficient
 P_M_X_CO = 0.112
 P_L_X_CO = 0.125
-M_P_M_Y_2_CO = 0.5           #this is the black point, other 3 are white point 
+M_P_M_Y_2_CO = 0.456           #this is the black point, other 3 are white point 
 M_P_M_X_2_CO = 0.5           
 M_P_L_Y_CO = 0.007           #middle pause
-M_P_L_X_CO = 0.19
-M_P_M_Y_CO = 0.043
+M_P_L_X_CO = 0.192
+M_P_M_Y_CO = 0.044
 M_P_R_Y_CO = 0.023
-M_P_R_X_CO = 0.149
+M_P_R_X_CO = 0.146
 
 ACC_L_Y_CO = 0.095           #accelerate for lazy only
 ACC_L_X_CO = 0.262
@@ -61,10 +61,10 @@ VP_X_4_CO = 0.185
 
 WHITE_10 = np.array([240, 240, 240])
 WHITE_9 = np.array([200, 200, 200])  # the number indicates the white level
-GRAY = np.array([128, 128, 128])
+GRAY = 128
 BLACK_9 = np.array([30, 30, 30])
 P_DIFF_TH = 10 # threshold
-M_P_DIFF_TH = np.array([30, 30, 30]) # threshold
+M_P_DIFF_TH = 35 # threshold
 GRAY_LOWER = np.array([55, 55, 55])
 GRAY_UPPER = np.array([130, 130, 130])
 
@@ -725,9 +725,10 @@ class PointCoordinates:
         
         
 def is_pause(frame, pc):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(float) 
     if abs(
-            float(sum(frame[pc.p_l_y, pc.p_l_x]) / len(frame[pc.p_l_y, pc.p_l_x]))
-            - float(sum(frame[pc.p_m_y, pc.p_m_x]) / len(frame[pc.p_m_y, pc.p_m_x]))
+            float(gray[pc.p_l_y, pc.p_l_x] )
+            - float(gray[pc.p_m_y, pc.p_m_x])
             ) < P_DIFF_TH:
         return True
     white_points = [
@@ -735,14 +736,14 @@ def is_pause(frame, pc):
         (pc.m_p_m_y, pc.m_p_m_x),
         (pc.m_p_r_y, pc.m_p_r_x)
     ]
-    if all(all(frame[y, x] > WHITE_10) for y, x in white_points):
+    if all(all(gray[y, x] > WHITE_10) for y, x in white_points):
         return True 
     if (
-        all(frame[pc.m_p_m_y, pc.m_p_m_x] > GRAY)
-        and all(abs(frame[pc.m_p_m_y, pc.m_p_m_x] - frame[pc.m_p_l_y, pc.m_p_l_x]) < M_P_DIFF_TH)
-        and all(abs(frame[pc.m_p_m_y, pc.m_p_m_x] - frame[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH)
-        and all(abs(frame[pc.m_p_l_y, pc.m_p_l_x] - frame[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH)
-        and all(frame[pc.m_p_m_y_2, pc.m_p_m_x_2] < GRAY)
+        gray[pc.m_p_m_y, pc.m_p_m_x] > GRAY
+        and abs(gray[pc.m_p_m_y, pc.m_p_m_x] - gray[pc.m_p_l_y, pc.m_p_l_x]) < M_P_DIFF_TH
+        and abs(gray[pc.m_p_m_y, pc.m_p_m_x] - gray[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH
+        and abs(gray[pc.m_p_l_y, pc.m_p_l_x] - gray[pc.m_p_r_y, pc.m_p_r_x]) < M_P_DIFF_TH
+        and gray[pc.m_p_m_y_2, pc.m_p_m_x_2] < GRAY
     ):
         return True
     return False
