@@ -32,21 +32,21 @@ DEFAULT_IGNORE_FRAME_CNT = 0
 SHOW_PROGRESS_SEG = 5
 
 P_M_Y_CO = 0.074             #(right top) pause middle coefficient
-P_M_X_CO = 0.112
-P_L_X_CO = 0.125
-M_P_M_Y_2_CO = 0.456           #this is the black point, other 3 are white point 
+P_M_X_CO = 0.101
+P_L_X_CO = 0.116
+M_P_M_Y_2_CO = 0.453           #this is the black point, other 3 are white point 
 M_P_M_X_2_CO = 0.5           
 M_P_L_Y_CO = 0.007           #middle pause
-M_P_L_X_CO = 0.192
-M_P_M_Y_CO = 0.044
-M_P_R_Y_CO = 0.023
+M_P_L_X_CO = 0.193
+M_P_M_Y_CO = 0.043
+M_P_R_Y_CO = 0.018
 M_P_R_X_CO = 0.146
 
 ACC_L_Y_CO = 0.095           #accelerate for lazy only
-ACC_L_X_CO = 0.262
-ACC_R_X_CO = 0.247
+ACC_L_X_CO = 0.269
+ACC_R_X_CO = 0.25
 
-VP_Y_CO = 0.5       #valid pause
+VP_Y_CO = 0.527       #valid pause
 VP_X_1_CO = 0.046
 VP_X_2_CO = 0.093
 VP_X_3_CO = 0.139
@@ -712,15 +712,15 @@ class PointCoordinates:
             # self.vp_2_x_3 = int(round(VP_2_X_3_CO * mdf_hgt + left_margin, 0))
             # self.vp_2_x_4 = int(round(VP_2_X_4_CO * mdf_hgt + left_margin, 0))
 
-            #print(self.p_m_y, self.p_m_x)
-            #print(self.p_l_y, self.p_l_x)
-            #print(self.m_p_m_y_2, self.m_p_m_x_2)
-            #print(self.m_p_l_y, self.m_p_l_x)
-            #print(self.m_p_m_y, self.m_p_m_x)
-            #print(self.m_p_r_y, self.m_p_r_x)
-            #print(self.acc_l_y, self.acc_l_x)
-            #print(self.acc_r_y, self.acc_r_x)
-            #print(self.vp_y, self.vp_x_1, self.vp_x_2, self.vp_x_3, self.vp_x_4)
+            # print(self.acc_r_y, self.acc_r_x)
+            # print(self.acc_l_y, self.acc_l_x)
+            # print(self.p_m_y, self.p_m_x)
+            # print(self.p_l_y, self.p_l_x)
+            # print(self.m_p_l_y, self.m_p_l_x)
+            # print(self.m_p_m_y_2, self.m_p_m_x_2)
+            # print(self.m_p_m_y, self.m_p_m_x)
+            # print(self.m_p_r_y, self.m_p_r_x)
+            # print(self.vp_y, self.vp_x_1, self.vp_x_2, self.vp_x_3, self.vp_x_4)
             #print(self.vp_2_y, self.vp_2_x_1, self.vp_2_x_2, self.vp_2_x_3, self.vp_2_x_4)
         
         
