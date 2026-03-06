@@ -194,6 +194,25 @@ def set_thread_num(thread_num):
 def set_ignore_frame_cnt(ignore_frame_cnt):
     e_ignore_frame_cnt.delete(0, END)
     e_ignore_frame_cnt.insert(0, ignore_frame_cnt)    
+        
+def set_manual_set_or_not(manual_set_or_not):
+    if manual_set_or_not == "是":
+        e_manual_set_or_not.set("是")
+        e_top_margin.config(state="disable")
+        e_bottom_margin.config(state="disable")
+        e_left_margin.config(state="disable")
+        e_right_margin.config(state="disabled")
+        e_measure_margin_second.config(state="disabled")
+        b_measure_margin.config(state="disabled")
+        b_crop.config(state="disabled")
+        b_cut_with_crop.config(state="disabled")
+        e_manual_set_second_1.config(state="normal")
+        e_manual_set_second_2.config(state="normal")
+        b_manual_set.config(state="normal")
+        b_manual_set_sample.config(state="normal")
+        b_manual_set_save.config(state="normal")  
+    else:
+        e_manual_set_or_not.set("否")    
 
 def set_coordinates():
     if os.path.exists(path + "/检测点.txt"):
@@ -429,7 +448,7 @@ def show_desc():
     l4_2.grid(row=3, column=1)
     l4_3.grid(row=3, column=2)
 
-def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, thread_num, ignore_frame_cnt):
+def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, thread_num, ignore_frame_cnt, manual_set_or_not):
     if check_thread_num(thread_num):
         if check_margin(top_margin, bottom_margin, left_margin, right_margin):
             f = open(path + "/设置.txt", "w+")
@@ -440,6 +459,7 @@ def save_settings(mode_i, top_margin, bottom_margin, left_margin, right_margin, 
             f.write(right_margin + "\n")
             f.write(thread_num + "\n")
             f.write(ignore_frame_cnt + "\n")
+            f.write(manual_set_or_not + "\n")
             f.close()
             messagebox.showinfo(title="消息", message="设置已保存")
 
@@ -852,7 +872,6 @@ def update_entry_state(event):
         e_bottom_margin.config(state="disable")
         e_left_margin.config(state="disable")
         e_right_margin.config(state="disabled")
-        b_save_settings.config(state="disabled")
         e_measure_margin_second.config(state="disabled")
         b_measure_margin.config(state="disabled")
         b_crop.config(state="disabled")
@@ -867,7 +886,6 @@ def update_entry_state(event):
         e_bottom_margin.config(state="normal")
         e_left_margin.config(state="normal")
         e_right_margin.config(state="normal")
-        b_save_settings.config(state="normal")
         e_measure_margin_second.config(state="normal")
         b_measure_margin.config(state="normal")
         b_crop.config(state="normal")
@@ -1521,20 +1539,6 @@ e_ignore_frame_cnt = Entry(win, bg="white", font=20)
 
 e_ignore_frame_cnt.insert(0, DEFAULT_IGNORE_FRAME_CNT)
 
-b_save_settings = Button(
-    win,
-    text="保存设置",
-    command=lambda: save_settings(
-        e_mode.current(),
-        e_top_margin.get(),
-        e_bottom_margin.get(),
-        e_left_margin.get(),
-        e_right_margin.get(),
-        e_thread_num.get(),
-        e_ignore_frame_cnt.get()
-    ),
-    font=20
-)
 
 l_measure_margin_second = Label(win, text="检测边距秒数（支持小数）", font=20, height=2)
 e_measure_margin_second = Entry(win, bg="white", font=20)
@@ -1655,6 +1659,22 @@ b_manual_set_sample.config(state="disabled")
 b_manual_set_save.config(state="disabled")  
 e_manual_set_or_not.bind("<<ComboboxSelected>>", update_entry_state)
 
+b_save_settings = Button(
+    win,
+    text="保存设置",
+    command=lambda: save_settings(
+        e_mode.current(),
+        e_top_margin.get(),
+        e_bottom_margin.get(),
+        e_left_margin.get(),
+        e_right_margin.get(),
+        e_thread_num.get(),
+        e_ignore_frame_cnt.get(),
+        e_manual_set_or_not.get()
+    ),
+    font=20
+)
+
 l_text_working_path.grid(row=0)
 l_working_path.grid(row=0, column=1)
 l_mode.grid(row=1)
@@ -1724,6 +1744,7 @@ if os.path.exists(path + "/设置.txt"):
     )
     set_thread_num(int(f.readline()))
     set_ignore_frame_cnt(int(f.readline()))
+    set_manual_set_or_not(f.readline().strip())
     f.close()
 
 set_coordinates()
